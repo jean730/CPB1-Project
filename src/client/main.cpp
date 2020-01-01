@@ -278,8 +278,8 @@ int main(){
 	VkViewport viewport = {};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
-	viewport.width = 800.0f;
-	viewport.height = 600.0f;
+	viewport.width = (float)extent.width;
+	viewport.height = (float)extent.height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
@@ -404,7 +404,31 @@ int main(){
 	else{
 	    std::cout << "Graphics Pipeline successfully created." << std::endl;
 	}
+	
+	std::vector<VkFramebuffer> Framebuffers;
+	Framebuffers.resize(imageCount);
+	for(unsigned int i=0;i<imageCount;i++){
+		VkImageView attachments[] = {
+			ImageViews[i]
+	   	};
 
+		VkFramebufferCreateInfo framebufferCreateInfo = {};
+		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferCreateInfo.renderPass = renderPass;
+		framebufferCreateInfo.attachmentCount = 1;
+		framebufferCreateInfo.pAttachments = attachments;
+		framebufferCreateInfo.width = extent.width;
+		framebufferCreateInfo.height = extent.height;
+		framebufferCreateInfo.layers = 1;
+		
+		if (vkCreateFramebuffer(device, &framebufferCreateInfo, nullptr, &Framebuffers[i]) != VK_SUCCESS) {
+			std::cerr << "Could not create framebuffer "<< i << std::endl;
+			glfwTerminate();
+		}
+		else{
+		    std::cout << "Framebuffer " << i << " successfully created." << std::endl;
+		}
+	}
 
 
 
@@ -416,6 +440,9 @@ int main(){
 	}
 
 
+	for(unsigned int i=0;i<imageCount;i++){
+		vkDestroyFramebuffer(device,Framebuffers[i],nullptr);
+	}
 	vkDestroyPipeline(device, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 	vkDestroyRenderPass(device, renderPass, nullptr);
