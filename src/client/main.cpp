@@ -3,6 +3,8 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+unsigned short int WIDTH=1280;
+unsigned short int HEIGHT=960;
 bool WIREFRAME_MODE=false;
 void err(int errnum, const char* err){
 	std::cerr << errnum << " -- " << err << std::endl;
@@ -46,7 +48,7 @@ int main(){
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
 
-	window = glfwCreateWindow(800, 600, "test", NULL,NULL);
+	window = glfwCreateWindow(WIDTH, HEIGHT, "test", NULL,NULL);
 
 	VkInstance vkinstance;
 	VkApplicationInfo applicationInfo = {};
@@ -190,7 +192,7 @@ int main(){
 			std::cout << "Surface supports triple buffering." << std::endl;
 		}
 	}
-	VkExtent2D extent = {800,600};
+	VkExtent2D extent = {WIDTH,HEIGHT};
 	uint32_t imageCount=capabilities.minImageCount+1;
 	if(capabilities.minImageCount == capabilities.maxImageCount){
 		imageCount-=1;
@@ -300,7 +302,7 @@ int main(){
 
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
 
-	if(WIREFRAME_MODE){
+	if(!WIREFRAME_MODE){
 		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	}
 	else{
@@ -344,6 +346,8 @@ int main(){
 	    std::cout << "Pipeline layout successfully created." << std::endl;
 	}
 	
+
+
 	VkAttachmentDescription colorAttachment = {};
 	colorAttachment.format = swapChainImageFormat;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -360,6 +364,14 @@ int main(){
 	colorAttachmentRef.attachment = 0;
 	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+	VkSubpassDependency dependency = {};
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependency.dstSubpass = 0;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.srcAccessMask = 0;
+	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
 	VkSubpassDescription subpass = {};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
@@ -367,20 +379,25 @@ int main(){
 	subpass.pColorAttachments = &colorAttachmentRef;
 
 	
-	VkRenderPassCreateInfo renderPassInfo = {};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = 1;
-	renderPassInfo.pAttachments = &colorAttachment;
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpass;
+	VkRenderPassCreateInfo renderPassCreateInfo = {};
+	renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassCreateInfo.attachmentCount = 1;
+	renderPassCreateInfo.pAttachments = &colorAttachment;
+	renderPassCreateInfo.subpassCount = 1;
+	renderPassCreateInfo.pSubpasses = &subpass;
+	renderPassCreateInfo.dependencyCount = 1;
+	renderPassCreateInfo.pDependencies = &dependency;
 
-	if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+	if (vkCreateRenderPass(device, &renderPassCreateInfo, nullptr, &renderPass) != VK_SUCCESS) {
 		std::cerr << "Could not create renderpass." << std::endl;
 		glfwTerminate();
 	}
 	else{
 	    std::cout << "Renderpass successfully created." << std::endl;
 	}
+
+
+
 
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
 	pipelineCreateInfo.sType=VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -408,10 +425,10 @@ int main(){
 	std::vector<VkFramebuffer> Framebuffers;
 	Framebuffers.resize(imageCount);
 	for(unsigned int i=0;i<imageCount;i++){
+
 		VkImageView attachments[] = {
 			ImageViews[i]
 	   	};
-
 		VkFramebufferCreateInfo framebufferCreateInfo = {};
 		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		framebufferCreateInfo.renderPass = renderPass;
@@ -430,16 +447,111 @@ int main(){
 		}
 	}
 
+	VkCommandPool commandPool;
+	VkCommandPoolCreateInfo poolCreateInfo = {};
+	poolCreateInfo.sType=VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	poolCreateInfo.queueFamilyIndex=graphicsFamilyID;
+	poolCreateInfo.flags=VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+	if (vkCreateCommandPool(device, &poolCreateInfo, nullptr, &commandPool) != VK_SUCCESS) {
+		std::cerr << "Could not create Command Pool " << std::endl;
+		glfwTerminate();
+	}
+	else{
+	    std::cout << "Command Pool successfully created." << std::endl;
+	}
+	std::vector<VkCommandBuffer> commandBuffers;
+	commandBuffers.resize(imageCount);
+	VkCommandBufferAllocateInfo bufferAllocInfo = {};
+	bufferAllocInfo.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	bufferAllocInfo.commandPool = commandPool;
+	bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	bufferAllocInfo.commandBufferCount = (uint32_t) commandBuffers.size();
+	vkAllocateCommandBuffers(device, &bufferAllocInfo, commandBuffers.data());
+	
+	for(unsigned int i=0;i<imageCount;i++){
+		VkCommandBufferBeginInfo beginInfo = {};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = 0; // Optional
+		beginInfo.pInheritanceInfo = nullptr; // Optional
+		vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
+
+		VkRenderPassBeginInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = renderPass;
+		renderPassInfo.framebuffer = Framebuffers[i];
+		renderPassInfo.renderArea.offset = {0, 0};
+		renderPassInfo.renderArea.extent = extent;
+		VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+		renderPassInfo.clearValueCount = 1;
+		renderPassInfo.pClearValues = &clearColor;
+		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+		vkCmdDraw(commandBuffers[i], 6, 1, 0, 0);
+		vkCmdEndRenderPass(commandBuffers[i]);
+		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
+			std::cerr << "Render Pass Failed" << std::endl;
+		}
+	}
 
 
-
-
+	VkSemaphoreCreateInfo semaphoreInfo = {};
+	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	VkSemaphore imageAvailableSemaphore;
+	vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphore);
+	VkSemaphore renderFinishedSemaphore;
+	vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphore);
+	
 	while(!glfwWindowShouldClose(window)){
 		glfwPollEvents();
+		uint32_t imageIndex;
+		vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+		VkSubmitInfo submitInfo = {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+		VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
+		VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+		submitInfo.waitSemaphoreCount = 1;
+		submitInfo.pWaitSemaphores = waitSemaphores;
+		submitInfo.pWaitDstStageMask = waitStages;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
+		VkSemaphore signalSemaphores[] = {renderFinishedSemaphore};
+		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores = signalSemaphores;
+		if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE)!=VK_SUCCESS){
+			std::cerr << "Queue submit Failed" << std::endl;
+		}
+
+
+		VkPresentInfoKHR presentInfo = {};
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		presentInfo.waitSemaphoreCount = 1;
+		presentInfo.pWaitSemaphores = signalSemaphores;
+
+		VkSwapchainKHR swapchains[] = {swapchain};
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = swapchains;
+		presentInfo.pImageIndices = &imageIndex;
+		vkQueuePresentKHR(graphicsQueue, &presentInfo);
+		vkQueueWaitIdle(graphicsQueue);
+
+
+
+
+
+
+
+
 
 	}
 
 
+	vkDeviceWaitIdle(device);
+	
+	vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
+	vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
+
+	vkDestroyCommandPool(device, commandPool, nullptr);
 	for(unsigned int i=0;i<imageCount;i++){
 		vkDestroyFramebuffer(device,Framebuffers[i],nullptr);
 	}
