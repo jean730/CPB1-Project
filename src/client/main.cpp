@@ -131,6 +131,7 @@ int main(){
 	float priority = 1.0f;
 	queueCreateInfo.pQueuePriorities = &priority;
 	VkPhysicalDeviceFeatures deviceFeatures = {};
+	deviceFeatures.fillModeNonSolid=true;
 	VkDeviceCreateInfo devCreateInfo = {};
 	devCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	devCreateInfo.pQueueCreateInfos = &queueCreateInfo;
@@ -262,7 +263,7 @@ int main(){
 	fragmentShaderStageInfo.module = fragmentShaderModule;
 	fragmentShaderStageInfo.pName = "main";
 
-	VkPipelineShaderStageCreateInfo shaderStages[] = {vertexShaderStageInfo, fragmentShaderStageInfo};
+	VkPipelineShaderStageCreateInfo shaders[] = {vertexShaderStageInfo, fragmentShaderStageInfo};
 
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -272,7 +273,7 @@ int main(){
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	inputAssembly.primitiveRestartEnable = VK_TRUE;
+	inputAssembly.primitiveRestartEnable = VK_FALSE;
 
 	VkViewport viewport = {};
 	viewport.x = 0.0f;
@@ -285,6 +286,13 @@ int main(){
 	VkRect2D scissor = {};
 	scissor.offset = {0, 0};
 	scissor.extent = extent;
+
+	VkPipelineViewportStateCreateInfo viewportStateInfo = {};
+	viewportStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportStateInfo.viewportCount = 1;
+	viewportStateInfo.pViewports = &viewport;
+	viewportStateInfo.scissorCount = 1;
+	viewportStateInfo.pScissors = &scissor;
 
 	VkPipelineRasterizationStateCreateInfo rasterizer = {};
 	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -303,10 +311,10 @@ int main(){
 	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 	
-	VkPipelineMultisampleStateCreateInfo multisampling = {};
-	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multisampling.sampleShadingEnable = VK_FALSE;
-	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	VkPipelineMultisampleStateCreateInfo multisampler = {};
+	multisampler.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampler.sampleShadingEnable = VK_FALSE;
+	multisampler.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
 	VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -318,15 +326,7 @@ int main(){
 	colorBlending.attachmentCount = 1;
 	colorBlending.pAttachments = &colorBlendAttachment;
 
-	VkDynamicState dynamicStates[] = {
-		VK_DYNAMIC_STATE_VIEWPORT,
-		VK_DYNAMIC_STATE_LINE_WIDTH
-	};
-	VkPipelineDynamicStateCreateInfo dynamicState = {};
-	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-	dynamicState.dynamicStateCount = 2;
-	dynamicState.pDynamicStates = dynamicStates;
-
+	VkRenderPass renderPass;
 	VkPipelineLayout pipelineLayout;
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -343,18 +343,87 @@ int main(){
 	else{
 	    std::cout << "Pipeline layout successfully created." << std::endl;
 	}
+	
+	VkAttachmentDescription colorAttachment = {};
+	colorAttachment.format = swapChainImageFormat;
+	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; // We do not need the stencil buffer for now
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	VkAttachmentReference colorAttachmentRef = {};
+	colorAttachmentRef.attachment = 0;
+	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &colorAttachmentRef;
+
+	
+	VkRenderPassCreateInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = 1;
+	renderPassInfo.pAttachments = &colorAttachment;
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpass;
+
+	if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+		std::cerr << "Could not create renderpass." << std::endl;
+		glfwTerminate();
+	}
+	else{
+	    std::cout << "Renderpass successfully created." << std::endl;
+	}
+
+	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
+	pipelineCreateInfo.sType=VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipelineCreateInfo.stageCount=2;
+	pipelineCreateInfo.pStages=shaders;
+	pipelineCreateInfo.pVertexInputState=&vertexInputInfo;
+	pipelineCreateInfo.pInputAssemblyState=&inputAssembly;
+	pipelineCreateInfo.pViewportState=&viewportStateInfo;
+	pipelineCreateInfo.pRasterizationState=&rasterizer;
+	pipelineCreateInfo.pMultisampleState=&multisampler;
+	pipelineCreateInfo.pColorBlendState=&colorBlending;
+	pipelineCreateInfo.layout=pipelineLayout;
+	pipelineCreateInfo.renderPass=renderPass;
+	pipelineCreateInfo.subpass=0;
+
+	VkPipeline graphicsPipeline; // FINALLY the graphics pipeline
+	if (vkCreateGraphicsPipelines(device,VK_NULL_HANDLE,1, &pipelineCreateInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+		std::cerr << "Could not create the graphics pipeline." << std::endl;
+		glfwTerminate();
+	}
+	else{
+	    std::cout << "Graphics Pipeline successfully created." << std::endl;
+	}
+
+
+
+
+
+
 	while(!glfwWindowShouldClose(window)){
 		glfwPollEvents();
 
 	}
 
 
+	vkDestroyPipeline(device, graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+	vkDestroyRenderPass(device, renderPass, nullptr);
+	vkDestroyShaderModule(device, fragmentShaderModule, nullptr);
+	vkDestroyShaderModule(device, vertexShaderModule, nullptr);
 	for(unsigned int i=0;i<imageCount;i++){
 		vkDestroyImageView(device,ImageViews[i],nullptr);
 	}
-	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-	vkDestroyShaderModule(device, fragmentShaderModule, nullptr);
-	vkDestroyShaderModule(device, vertexShaderModule, nullptr);
 	vkDestroySwapchainKHR(device, swapchain, nullptr);
 	vkDestroyDevice(device, nullptr);
 	vkDestroySurfaceKHR(vkinstance,surface, nullptr);
