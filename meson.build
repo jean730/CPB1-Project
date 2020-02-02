@@ -1,14 +1,17 @@
 project('render','cpp')
 src=[
   'src/client/main.cpp',
+  'src/client/entity.cpp',
 ]
 vulkan=dependency('vulkan')
+glm=dependency('glm')
 headers = include_directories('include')
 executable(
   'render',
   src,
   dependencies : [
-    vulkan
+    vulkan,
+    glm
     ],
   include_directories : headers,
   install : true,

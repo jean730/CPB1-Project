@@ -1,8 +1,15 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <functional>
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include "client/vertex.h"
+#include "client/entity.h"
+#include <math.h>
 unsigned short int WIDTH=1280;
 unsigned short int HEIGHT=960;
 bool WIREFRAME_MODE=false;
@@ -267,10 +274,31 @@ int main(){
 
 	VkPipelineShaderStageCreateInfo shaders[] = {vertexShaderStageInfo, fragmentShaderStageInfo};
 
+	std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions(4);
+	for(int i=0;i<4;i++){
+		vertexInputAttributeDescriptions[i].binding=0;
+		vertexInputAttributeDescriptions[i].location=i;
+		vertexInputAttributeDescriptions[i].format=VK_FORMAT_R32G32B32_SFLOAT;
+	}
+	vertexInputAttributeDescriptions[0].offset=offsetof(Vertex,Vertex::Position);
+	vertexInputAttributeDescriptions[1].offset=offsetof(Vertex,Vertex::Color);
+	vertexInputAttributeDescriptions[2].offset=offsetof(Vertex,Vertex::Normal);
+	vertexInputAttributeDescriptions[3].offset=offsetof(Vertex,Vertex::UV);
+	vertexInputAttributeDescriptions[3].format=VK_FORMAT_R32G32_SFLOAT;
+
+	
+
+	VkVertexInputBindingDescription vertexInputBindingDescription;
+	vertexInputBindingDescription.binding=0;
+	vertexInputBindingDescription.stride=sizeof(Vertex);
+	vertexInputBindingDescription.inputRate=VK_VERTEX_INPUT_RATE_VERTEX;
+
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 0;
-	vertexInputInfo.vertexAttributeDescriptionCount = 0;
+	vertexInputInfo.vertexBindingDescriptionCount = 1;
+	vertexInputInfo.vertexAttributeDescriptionCount = 4;
+	vertexInputInfo.pVertexBindingDescriptions=&vertexInputBindingDescription;
+	vertexInputInfo.pVertexAttributeDescriptions=vertexInputAttributeDescriptions.data();
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -447,6 +475,34 @@ int main(){
 		}
 	}
 
+	std::vector<Entity> Entities;
+	Entities.push_back(Entity());
+	Entities[0].Position = glm::vec3(0,0,0);
+	Entities[0].Angle = glm::vec3(0,0,0);
+	Entities[0].Vertices.push_back({{0.5,-0.5,0},{1,0,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,0.5,0},{0,0,1},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,0.5,0},{0,1,0},{0,0,0},{0,0}});
+	Entities.push_back(Entity());
+	Entities[1].Position = glm::vec3(0,0,0);
+	Entities[1].Angle = glm::vec3(0,0,0);
+	Entities[1].Vertices.push_back({{0.5,-0.5,0},{1,0,0},{0,0,0},{0,0}});
+	Entities[1].Vertices.push_back({{-0.5,0.5,0},{0,1,0},{0,0,0},{0,0}});
+	Entities[1].Vertices.push_back({{-0.5,-0.5,0},{0,0,1},{0,0,0},{0,0}});
+	for (Entity &entity: Entities){
+		entity.createVertexBuffer(std::ref(device),std::ref(physicalDevice));
+	}
+//	Entities[0].destroyVertexBuffer(std::ref(device));
+//	Entities.erase(Entities.begin());
+
+
+
+
+
+
+
+
+
+
 	VkCommandPool commandPool;
 	VkCommandPoolCreateInfo poolCreateInfo = {};
 	poolCreateInfo.sType=VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -461,48 +517,63 @@ int main(){
 	}
 	std::vector<VkCommandBuffer> commandBuffers;
 	commandBuffers.resize(imageCount);
-	VkCommandBufferAllocateInfo bufferAllocInfo = {};
-	bufferAllocInfo.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	bufferAllocInfo.commandPool = commandPool;
-	bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	bufferAllocInfo.commandBufferCount = (uint32_t) commandBuffers.size();
-	vkAllocateCommandBuffers(device, &bufferAllocInfo, commandBuffers.data());
 	
-	for(unsigned int i=0;i<imageCount;i++){
-		VkCommandBufferBeginInfo beginInfo = {};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = 0; // Optional
-		beginInfo.pInheritanceInfo = nullptr; // Optional
-		vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
-
-		VkRenderPassBeginInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = renderPass;
-		renderPassInfo.framebuffer = Framebuffers[i];
-		renderPassInfo.renderArea.offset = {0, 0};
-		renderPassInfo.renderArea.extent = extent;
-		VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearColor;
-		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-		vkCmdDraw(commandBuffers[i], 6, 1, 0, 0);
-		vkCmdEndRenderPass(commandBuffers[i]);
-		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
-			std::cerr << "Render Pass Failed" << std::endl;
-		}
-	}
-
-
 	VkSemaphoreCreateInfo semaphoreInfo = {};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	VkSemaphore imageAvailableSemaphore;
 	vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphore);
 	VkSemaphore renderFinishedSemaphore;
 	vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphore);
-	
+	double time=0;
+		
 	while(!glfwWindowShouldClose(window)){
 		glfwPollEvents();
+
+		VkCommandBufferAllocateInfo bufferAllocInfo = {};
+		bufferAllocInfo.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		bufferAllocInfo.commandPool = commandPool;
+		bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		bufferAllocInfo.commandBufferCount = (uint32_t) commandBuffers.size();
+		vkAllocateCommandBuffers(device, &bufferAllocInfo, commandBuffers.data());
+		time+=0.05;
+		Entities[0].destroyVertexBuffer(device);
+		Entities[0].Vertices[0].Position.x+=sin(time)*0.002;
+		Entities[0].Vertices[2].Position.y+=sin(time)*0.002;
+		Entities[0].createVertexBuffer(std::ref(device),std::ref(physicalDevice));
+		Entities[1].destroyVertexBuffer(device);
+		Entities[1].Vertices[0].Position.y-=sin(time)*0.002;
+		Entities[1].Vertices[1].Position.x-=sin(time)*0.002;
+		Entities[1].createVertexBuffer(std::ref(device),std::ref(physicalDevice));
+		for(unsigned int i=0;i<imageCount;i++){
+			VkCommandBufferBeginInfo beginInfo = {};
+			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+			beginInfo.flags = 0; // Optional
+			beginInfo.pInheritanceInfo = nullptr; // Optional
+			vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
+			VkRenderPassBeginInfo renderPassInfo = {};
+			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+			renderPassInfo.renderPass = renderPass;
+			renderPassInfo.framebuffer = Framebuffers[i];
+			renderPassInfo.renderArea.offset = {0, 0};
+			renderPassInfo.renderArea.extent = extent;
+			VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+			renderPassInfo.clearValueCount = 1;
+			renderPassInfo.pClearValues = &clearColor;
+				vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+			for (Entity &entity: Entities){
+				VkBuffer vertexBuffers[] = {entity.vertexBuffer};
+				VkDeviceSize offsets[] = {0};
+				vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+				vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(entity.Vertices.size()), 1, 0, 0);
+			}
+
+			vkCmdEndRenderPass(commandBuffers[i]);
+			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
+				std::cerr << "Render Pass Failed" << std::endl;
+			}
+		}
 		uint32_t imageIndex;
 		vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 		VkSubmitInfo submitInfo = {};
