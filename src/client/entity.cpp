@@ -20,9 +20,9 @@ void Entity::createVertexBuffer(VkDevice &device,VkPhysicalDevice &pDevice){
 	vkGetBufferMemoryRequirements(device, this->vertexBuffer, &memoryRequirements);
 	int memoryType=0;
 	for(int i=0;i<memoryProperties.memoryTypeCount;i++){
-		if(memoryRequirements.memoryTypeBits &(1<<i) && memoryProperties.memoryTypes[i].propertyFlags &
-				(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)==
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT){
+		if(memoryRequirements.memoryTypeBits &(1<<i) && (memoryProperties.memoryTypes[i].propertyFlags &
+				(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))==
+				(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)){
 			memoryType=i;
 //			std::cout << "Memory Type: " << i << std::endl;
 		}

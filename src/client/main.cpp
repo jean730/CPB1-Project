@@ -87,7 +87,8 @@ int main(){
 	std::vector<VkLayerProperties> availableLayers(layerCount);
 	vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 	std::vector<const char*> selectedLayers;
-	selectedLayers.push_back("VK_LAYER_KHRONOS_validation");
+//	selectedLayers.push_back("VK_LAYER_KHRONOS_validation");
+//	selectedLayers.push_back("VK_LAYER_LUNARG_standard_validation");
 	createInfo.enabledLayerCount = selectedLayers.size();
 	createInfo.ppEnabledLayerNames=selectedLayers.data();
 	std::cout << "Available Layers:" << std::endl;
@@ -103,7 +104,7 @@ int main(){
 		std::cout << "\t- " << extensionVector[i] << std::endl;
 	}
 	
-	vkCreateInstance(&createInfo, NULL,&vkinstance);
+	vkCreateInstance(&createInfo, nullptr,&vkinstance);
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(vkinstance, &deviceCount, nullptr);
@@ -507,8 +508,36 @@ int main(){
 	for (Entity &entity: Entities){
 		entity.createVertexBuffer(std::ref(device),std::ref(physicalDevice));
 	}
-//	Entities[0].destroyVertexBuffer(std::ref(device));
-//	Entities.erase(Entities.begin());
+	VkBuffer uniformBuffer;
+	VkDeviceMemory uniformBufferMemory;
+	
+	VkBufferCreateInfo uniformBufferCreateInfo = {};
+	uniformBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	uniformBufferCreateInfo.size = sizeof(uniformBufferStruct);
+	uniformBufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+	uniformBufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	vkCreateBuffer(device, &uniformBufferCreateInfo, nullptr, &uniformBuffer);
+	VkMemoryRequirements memoryRequirements;
+	VkPhysicalDeviceMemoryProperties memoryProperties;
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+	vkGetBufferMemoryRequirements(device, uniformBuffer, &memoryRequirements);
+	int memoryType=0;
+	for(int i=0;i<memoryProperties.memoryTypeCount;i++){
+		if(memoryRequirements.memoryTypeBits &(1<<i) && (memoryProperties.memoryTypes[i].propertyFlags &
+				(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))==
+				(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)){
+			memoryType=i;
+		}
+	}
+
+	VkMemoryAllocateInfo memoryAllocateInfo = {};
+	memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	memoryAllocateInfo.allocationSize = memoryRequirements.size;
+	memoryAllocateInfo.memoryTypeIndex = memoryType;
+	if(vkAllocateMemory(device,&memoryAllocateInfo,nullptr,&uniformBufferMemory) == VK_SUCCESS){
+		std::cout << "Allocated Memory for uniform buffer: " << memoryRequirements.size << std::endl;
+		vkBindBufferMemory(device, uniformBuffer, uniformBufferMemory, 0);
+	}
 
 
 
@@ -541,7 +570,8 @@ int main(){
 	VkSemaphore renderFinishedSemaphore;
 	vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphore);
 	double time=0;
-		
+	uniformBufferStruct uniformBufferObject={};
+	uniformBufferObject.time=0;	
 	while(!glfwWindowShouldClose(window)){
 		glfwPollEvents();
 
@@ -555,11 +585,20 @@ int main(){
 		Entities[0].destroyVertexBuffer(device);
 		Entities[0].Vertices[0].Position.x+=sin(time)*0.002;
 		Entities[0].Vertices[2].Position.y+=sin(time)*0.002;
+		Entities[0].Vertices[1].Position.x+=sin(time)*0.002;
+		Entities[0].Vertices[1].Position.y+=sin(time)*0.002;
 		Entities[0].createVertexBuffer(std::ref(device),std::ref(physicalDevice));
 		Entities[1].destroyVertexBuffer(device);
 		Entities[1].Vertices[0].Position.y-=sin(time)*0.002;
 		Entities[1].Vertices[1].Position.x-=sin(time)*0.002;
+		Entities[1].Vertices[2].Position.y-=sin(time)*0.002;
+		Entities[1].Vertices[2].Position.x-=sin(time)*0.002;
 		Entities[1].createVertexBuffer(std::ref(device),std::ref(physicalDevice));
+		uniformBufferObject.time+=0.01;
+		void* data;
+		vkMapMemory(device, uniformBufferMemory, 0, sizeof(uniformBufferObject), 0, &data);
+		memcpy(data, &uniformBufferObject, sizeof(uniformBufferObject));
+		vkUnmapMemory(device, uniformBufferMemory);
 		for(unsigned int i=0;i<imageCount;i++){
 			VkCommandBufferBeginInfo beginInfo = {};
 			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -654,6 +693,7 @@ int main(){
 		vkDestroyImageView(device,ImageViews[i],nullptr);
 	}
 	vkDestroySwapchainKHR(device, swapchain, nullptr);
+	vkDestroyBuffer(device, uniformBuffer, nullptr);
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 	vkDestroyDevice(device, nullptr);
 	vkDestroySurfaceKHR(vkinstance,surface, nullptr);
