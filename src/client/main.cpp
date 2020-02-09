@@ -4,11 +4,14 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "client/vertex.h"
 #include "client/entity.h"
+#include "client/uniform.h"
 #include <math.h>
 unsigned short int WIDTH=1280;
 unsigned short int HEIGHT=960;
@@ -356,12 +359,27 @@ int main(){
 	colorBlending.attachmentCount = 1;
 	colorBlending.pAttachments = &colorBlendAttachment;
 
+	VkDescriptorSetLayoutBinding uniformBufferLayoutBinding={};
+	uniformBufferLayoutBinding.binding=0;
+	uniformBufferLayoutBinding.descriptorType=VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	uniformBufferLayoutBinding.descriptorCount=1;
+	uniformBufferLayoutBinding.stageFlags=VK_SHADER_STAGE_VERTEX_BIT;
+	VkDescriptorSetLayout descriptorSetLayout;
+	VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		nullptr,
+		0,
+		1,
+		&uniformBufferLayoutBinding
+	};
+	vkCreateDescriptorSetLayout(device, &layoutCreateInfo, nullptr, &descriptorSetLayout);
+
 	VkRenderPass renderPass;
 	VkPipelineLayout pipelineLayout;
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 0; // Optional
-	pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
+	pipelineLayoutInfo.setLayoutCount = 1; // Optional
+	pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout; // Optional
 	pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
 	pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
@@ -423,8 +441,6 @@ int main(){
 	else{
 	    std::cout << "Renderpass successfully created." << std::endl;
 	}
-
-
 
 
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
@@ -618,6 +634,9 @@ int main(){
 
 
 	vkDeviceWaitIdle(device);
+	for (Entity &entity : Entities){
+		entity.destroyVertexBuffer(device);
+	}
 	
 	vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
 	vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
@@ -635,6 +654,7 @@ int main(){
 		vkDestroyImageView(device,ImageViews[i],nullptr);
 	}
 	vkDestroySwapchainKHR(device, swapchain, nullptr);
+	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 	vkDestroyDevice(device, nullptr);
 	vkDestroySurfaceKHR(vkinstance,surface, nullptr);
 	vkDestroyInstance(vkinstance, NULL);
