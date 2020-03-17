@@ -5,5 +5,5 @@ struct uniformBufferStruct{
 	glm::mat4 modelMatrix;
 	glm::mat4 viewMatrix;
 	glm::mat4 projectionMatrix;
-	alignas(4) float time;
+	alignas(4) float time = 0;
 };

@@ -6,13 +6,16 @@
 #include <vector>
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "client/vertex.h"
 #include "client/entity.h"
 #include "client/uniform.h"
+#include "client/terrain.h"
 #include <math.h>
+#include <chrono>
 unsigned short int WIDTH=1280;
 unsigned short int HEIGHT=960;
 bool WIREFRAME_MODE=false;
@@ -88,7 +91,7 @@ int main(){
 	vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 	std::vector<const char*> selectedLayers;
 //	selectedLayers.push_back("VK_LAYER_KHRONOS_validation");
-//	selectedLayers.push_back("VK_LAYER_LUNARG_standard_validation");
+	selectedLayers.push_back("VK_LAYER_LUNARG_standard_validation");
 	createInfo.enabledLayerCount = selectedLayers.size();
 	createInfo.ppEnabledLayerNames=selectedLayers.data();
 	std::cout << "Available Layers:" << std::endl;
@@ -279,7 +282,7 @@ int main(){
 	VkPipelineShaderStageCreateInfo shaders[] = {vertexShaderStageInfo, fragmentShaderStageInfo};
 
 	std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions(4);
-	for(int i=0;i<4;i++){
+	for(unsigned int i=0;i<4;i++){
 		vertexInputAttributeDescriptions[i].binding=0;
 		vertexInputAttributeDescriptions[i].location=i;
 		vertexInputAttributeDescriptions[i].format=VK_FORMAT_R32G32B32_SFLOAT;
@@ -364,7 +367,7 @@ int main(){
 	uniformBufferLayoutBinding.binding=0;
 	uniformBufferLayoutBinding.descriptorType=VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	uniformBufferLayoutBinding.descriptorCount=1;
-	uniformBufferLayoutBinding.stageFlags=VK_SHADER_STAGE_VERTEX_BIT;
+	uniformBufferLayoutBinding.stageFlags=VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	VkDescriptorSetLayout descriptorSetLayout;
 	VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {
 		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -494,19 +497,63 @@ int main(){
 
 	std::vector<Entity> Entities;
 	Entities.push_back(Entity());
-	Entities[0].Position = glm::vec3(0,0,0);
+	Entities[0].Position = glm::vec3(0,5,0);
 	Entities[0].Angle = glm::vec3(0,0,0);
-	Entities[0].Vertices.push_back({{0.5,-0.5,0},{1,0,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,0.5,0},{0,0,1},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,0.5,0},{0,1,0},{0,0,0},{0,0}});
-	Entities.push_back(Entity());
-	Entities[1].Position = glm::vec3(0,0,0);
-	Entities[1].Angle = glm::vec3(0,0,0);
-	Entities[1].Vertices.push_back({{0.5,-0.5,0},{1,0,0},{0,0,0},{0,0}});
-	Entities[1].Vertices.push_back({{-0.5,0.5,0},{0,1,0},{0,0,0},{0,0}});
-	Entities[1].Vertices.push_back({{-0.5,-0.5,0},{0,0,1},{0,0,0},{0,0}});
+
+	//RIGHT
+	Entities[0].Vertices.push_back({{0.5,-0.5,-0.5},{1,0,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,0.5,-0.5},{0,1,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,-0.5,-0.5},{1,0,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,0.5,-0.5},{0,1,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,-0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
+
+	//LEFT
+	Entities[0].Vertices.push_back({{0.5,0.5,0.5},{0,0,1},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,0.5,0.5},{0,1,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,0.5,0.5},{0,1,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,-0.5,0.5},{0,0,1},{0,0,0},{0,0}});
+
+	//DOWN
+	Entities[0].Vertices.push_back({{0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,-0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,-0.5,0.5},{0,1,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,-0.5,0.5},{0,1,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,-0.5,-0.5},{1,0,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,-0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
+
+	//UP
+	Entities[0].Vertices.push_back({{0.5,0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,0.5,0.5},{1,0,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,0.5,0.5},{0,1,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,0.5,-0.5},{1,0,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,0.5,0.5},{0,1,0},{0,0,0},{0,0}});
+	
+	//FRONT
+	Entities[0].Vertices.push_back({{0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,0.5,0.5},{0,0,1},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,0.5,-0.5},{0,1,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,0.5,-0.5},{0,1,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{0.5,-0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
+
+	//BACK
+	Entities[0].Vertices.push_back({{-0.5,0.5,0.5},{0,0,1},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,0.5,-0.5},{0,1,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,0.5,-0.5},{0,1,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
+	Entities[0].Vertices.push_back({{-0.5,-0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
+	
+	Entities.push_back(createTerrain(3,1,0,0,2.0f,400,8));
+	Entities.push_back(createTerrain(3,1,-1,0,2.0f,400,8));
+	Entities.push_back(createTerrain(3,1,0,-1,2.0f,400,8));
+	Entities.push_back(createTerrain(3,1,-1,-1,2.0f,400,8));
 	for (Entity &entity: Entities){
-		entity.createVertexBuffer(std::ref(device),std::ref(physicalDevice));
+		entity.createBuffers(std::ref(device),std::ref(physicalDevice));
 	}
 	VkBuffer uniformBuffer;
 	VkDeviceMemory uniformBufferMemory;
@@ -522,7 +569,7 @@ int main(){
 	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
 	vkGetBufferMemoryRequirements(device, uniformBuffer, &memoryRequirements);
 	int memoryType=0;
-	for(int i=0;i<memoryProperties.memoryTypeCount;i++){
+	for(unsigned int i=0;i<memoryProperties.memoryTypeCount;i++){
 		if(memoryRequirements.memoryTypeBits &(1<<i) && (memoryProperties.memoryTypes[i].propertyFlags &
 				(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))==
 				(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)){
@@ -540,9 +587,49 @@ int main(){
 	}
 
 
+	VkDescriptorPoolSize descPoolSize = {
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		imageCount
+	};
 
+	VkDescriptorPoolCreateInfo descPoolCreateInfo = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		NULL,
+		0,
+		imageCount,
+		1,
+		&descPoolSize
+	};
 
+	VkDescriptorPool descPool;
 
+	if(vkCreateDescriptorPool(device,&descPoolCreateInfo,nullptr,&descPool)  != VK_SUCCESS) {
+                std::cerr << "Could not create Descriptor Pool " << std::endl;
+                glfwTerminate();
+        }
+        else{
+		std::cout << "Descriptor Pool successfully created." << std::endl;
+        }
+
+	std::vector<VkDescriptorSetLayout> layouts(imageCount, descriptorSetLayout);
+
+	VkDescriptorSetAllocateInfo descAllocInfo = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+		NULL,
+		descPool,
+		imageCount,
+		layouts.data()
+	};
+
+	std::vector<VkDescriptorSet> descSets(imageCount);
+	if(vkAllocateDescriptorSets(device,&descAllocInfo,descSets.data())  != VK_SUCCESS) {
+                std::cerr << "Could not create Descriptor Sets " << std::endl;
+                glfwTerminate();
+        }
+        else{
+		std::cout << "Descriptor Sets successfully created." << std::endl;
+        }
+	
 
 
 
@@ -569,10 +656,39 @@ int main(){
 	vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphore);
 	VkSemaphore renderFinishedSemaphore;
 	vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphore);
-	double time=0;
+
 	uniformBufferStruct uniformBufferObject={};
 	uniformBufferObject.time=0;	
+
+	for(unsigned int i=0;i<imageCount;i++){
+		VkDescriptorBufferInfo descBufferInfo = {
+			uniformBuffer,
+			0,
+			VK_WHOLE_SIZE
+		};
+		
+		VkWriteDescriptorSet writeDescriptor = {
+			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			NULL,
+			descSets[i],
+			0,
+			0,
+			1,
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			nullptr,
+			&descBufferInfo,
+			nullptr
+		};
+		vkUpdateDescriptorSets(device, 1, &writeDescriptor, 0, nullptr);
+	}
+	glm::vec3 camPos(2.0f,2.0f,2.0f);
+	glm::vec3 direction(0,0,0);
+	std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
 	while(!glfwWindowShouldClose(window)){
+		camPos=glm::vec3(uniformBufferObject.time*1+20,10,uniformBufferObject.time*1+20);
+		int timeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
+		start = std::chrono::system_clock::now();
 		glfwPollEvents();
 
 		VkCommandBufferAllocateInfo bufferAllocInfo = {};
@@ -581,30 +697,18 @@ int main(){
 		bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		bufferAllocInfo.commandBufferCount = (uint32_t) commandBuffers.size();
 		vkAllocateCommandBuffers(device, &bufferAllocInfo, commandBuffers.data());
-		time+=0.05;
-		Entities[0].destroyVertexBuffer(device);
-		Entities[0].Vertices[0].Position.x+=sin(time)*0.002;
-		Entities[0].Vertices[2].Position.y+=sin(time)*0.002;
-		Entities[0].Vertices[1].Position.x+=sin(time)*0.002;
-		Entities[0].Vertices[1].Position.y+=sin(time)*0.002;
-		Entities[0].createVertexBuffer(std::ref(device),std::ref(physicalDevice));
-		Entities[1].destroyVertexBuffer(device);
-		Entities[1].Vertices[0].Position.y-=sin(time)*0.002;
-		Entities[1].Vertices[1].Position.x-=sin(time)*0.002;
-		Entities[1].Vertices[2].Position.y-=sin(time)*0.002;
-		Entities[1].Vertices[2].Position.x-=sin(time)*0.002;
-		Entities[1].createVertexBuffer(std::ref(device),std::ref(physicalDevice));
-		uniformBufferObject.time+=0.01;
-		void* data;
-		vkMapMemory(device, uniformBufferMemory, 0, sizeof(uniformBufferObject), 0, &data);
-		memcpy(data, &uniformBufferObject, sizeof(uniformBufferObject));
-		vkUnmapMemory(device, uniformBufferMemory);
+		uniformBufferObject.time+=timeElapsed*0.001;
+		uniformBufferObject.viewMatrix = glm::lookAt(camPos,direction,glm::vec3(0.0f,1.0f,0.0f));
+		uniformBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), (float)extent.width/(float)extent.height, 0.1f, 100.0f);
+		uniformBufferObject.projectionMatrix[1][1] *= -1;
+		uint32_t i = 1;
 		for(unsigned int i=0;i<imageCount;i++){
 			VkCommandBufferBeginInfo beginInfo = {};
 			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 			beginInfo.flags = 0; // Optional
 			beginInfo.pInheritanceInfo = nullptr; // Optional
 			vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
+
 			VkRenderPassBeginInfo renderPassInfo = {};
 			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 			renderPassInfo.renderPass = renderPass;
@@ -616,12 +720,32 @@ int main(){
 			renderPassInfo.pClearValues = &clearColor;
 				vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descSets[i], 0, nullptr);
 
 			for (Entity &entity: Entities){
+				entity.Angle.y=uniformBufferObject.time;
+				uniformBufferObject.modelMatrix=glm::mat4(1.0f);
+				uniformBufferObject.modelMatrix = glm::translate(uniformBufferObject.modelMatrix, entity.Position);
+				uniformBufferObject.modelMatrix = glm::rotate(uniformBufferObject.modelMatrix,entity.Angle.y,glm::vec3(0.0f,1.0f,0.0f));
+				uniformBufferObject.modelMatrix = glm::rotate(uniformBufferObject.modelMatrix,entity.Angle.x,glm::vec3(1.0f,0.0f,0.0f));
+				uniformBufferObject.modelMatrix = glm::rotate(uniformBufferObject.modelMatrix,entity.Angle.z,glm::vec3(0.0f,0.0f,1.0f));
+
+
+				void* data;
+				vkMapMemory(device, uniformBufferMemory, 0, sizeof(uniformBufferObject), 0, &data);
+				memcpy(data, &uniformBufferObject, sizeof(uniformBufferObject));
+				vkUnmapMemory(device, uniformBufferMemory);
+
 				VkBuffer vertexBuffers[] = {entity.vertexBuffer};
 				VkDeviceSize offsets[] = {0};
 				vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-				vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(entity.Vertices.size()), 1, 0, 0);
+				if(entity.hasIndexBuffer){
+					vkCmdBindIndexBuffer(commandBuffers[i], entity.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+					vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(entity.Indices.size()), 1, 0, 0, 0);
+				}
+				else{
+					vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(entity.Vertices.size()), 1, 0, 0);
+				}
 			}
 
 			vkCmdEndRenderPass(commandBuffers[i]);
@@ -668,13 +792,13 @@ int main(){
 
 
 
-
+		 end = std::chrono::system_clock::now();
 	}
 
 
 	vkDeviceWaitIdle(device);
 	for (Entity &entity : Entities){
-		entity.destroyVertexBuffer(device);
+		entity.destroyBuffers(device);
 	}
 	
 	vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
@@ -684,6 +808,7 @@ int main(){
 	for(unsigned int i=0;i<imageCount;i++){
 		vkDestroyFramebuffer(device,Framebuffers[i],nullptr);
 	}
+
 	vkDestroyPipeline(device, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 	vkDestroyRenderPass(device, renderPass, nullptr);
@@ -694,9 +819,11 @@ int main(){
 	}
 	vkDestroySwapchainKHR(device, swapchain, nullptr);
 	vkDestroyBuffer(device, uniformBuffer, nullptr);
+	vkFreeMemory(device,uniformBufferMemory,nullptr);
+	vkDestroyDescriptorPool(device, descPool, nullptr);
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-	vkDestroyDevice(device, nullptr);
 	vkDestroySurfaceKHR(vkinstance,surface, nullptr);
+	vkDestroyDevice(device,nullptr);
 	vkDestroyInstance(vkinstance, NULL);
 	glfwDestroyWindow(window);
 	glfwTerminate();
