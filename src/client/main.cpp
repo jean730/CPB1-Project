@@ -548,10 +548,10 @@ int main(){
 	Entities[0].Vertices.push_back({{-0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
 	Entities[0].Vertices.push_back({{-0.5,-0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
 	
-	Entities.push_back(createTerrain(3,1,0,0,2.0f,400,8));
-	Entities.push_back(createTerrain(3,1,-1,0,2.0f,400,8));
-	Entities.push_back(createTerrain(3,1,0,-1,2.0f,400,8));
-	Entities.push_back(createTerrain(3,1,-1,-1,2.0f,400,8));
+	Entities.push_back(createTerrain(3,1,0,0,8.0f,0.02,2));
+	Entities.push_back(createTerrain(3,1,-1,0,8.0f,0.02,2));
+	Entities.push_back(createTerrain(3,1,0,-1,8.0f,0.02,2));
+	Entities.push_back(createTerrain(3,1,-1,-1,8.0f,0.02,2));
 	for (Entity &entity: Entities){
 		entity.createBuffers(std::ref(device),std::ref(physicalDevice));
 	}
@@ -681,12 +681,12 @@ int main(){
 		};
 		vkUpdateDescriptorSets(device, 1, &writeDescriptor, 0, nullptr);
 	}
-	glm::vec3 camPos(2.0f,2.0f,2.0f);
+	glm::vec3 camPos(0,0,0);
 	glm::vec3 direction(0,0,0);
 	std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
 	std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
 	while(!glfwWindowShouldClose(window)){
-		camPos=glm::vec3(uniformBufferObject.time*1+20,10,uniformBufferObject.time*1+20);
+		camPos=glm::vec3(uniformBufferObject.time*1+50,20,uniformBufferObject.time*1+50);
 		int timeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
 		start = std::chrono::system_clock::now();
 		glfwPollEvents();
@@ -699,7 +699,7 @@ int main(){
 		vkAllocateCommandBuffers(device, &bufferAllocInfo, commandBuffers.data());
 		uniformBufferObject.time+=timeElapsed*0.001;
 		uniformBufferObject.viewMatrix = glm::lookAt(camPos,direction,glm::vec3(0.0f,1.0f,0.0f));
-		uniformBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), (float)extent.width/(float)extent.height, 0.1f, 100.0f);
+		uniformBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), (float)extent.width/(float)extent.height, 0.1f, 1000.0f);
 		uniformBufferObject.projectionMatrix[1][1] *= -1;
 		uint32_t i = 1;
 		for(unsigned int i=0;i<imageCount;i++){

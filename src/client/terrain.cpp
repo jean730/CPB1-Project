@@ -41,15 +41,15 @@ Entity createTerrain(int Occ,int Seed, int X, int Z, float magnitude, float nois
 	float normX;
 	float normY;
 	float normZ;
-	int pp = resolution;
+	float pp = resolution;
 	int terrainSize = 40;
 	terrainSize /= pp;
 	int t=0;
-	for (int x = gridX * (terrainSize)*pp; x <= (gridX * (terrainSize) + terrainSize)*pp; x+=pp) {
-	    for (int z = gridZ * (terrainSize)*pp; z <= (gridZ * (terrainSize) + terrainSize)*pp; z+=pp) {
-		    v1 = glm::vec3(x, magnitude * getNoiseValue(std::ref(perlin),(float)x * noiseZoom, (float)z * noiseZoom, 0.5), z);         
-		    v2 = glm::vec3(x, magnitude * getNoiseValue(std::ref(perlin),(float)x * noiseZoom, ((float)z + pp) * noiseZoom, 0.5), (z + pp));
-		    v3 = glm::vec3((x + pp), magnitude * getNoiseValue(std::ref(perlin),((float)x + pp) * noiseZoom, (float)z * noiseZoom, 0.5), z);
+	for (float x = gridX * (terrainSize)*pp; x <= (gridX * (terrainSize) + terrainSize)*pp; x+=pp) {
+	    for (float z = gridZ * (terrainSize)*pp; z <= (gridZ * (terrainSize) + terrainSize)*pp; z+=pp) {
+		    v1 = glm::vec3(x, magnitude * getNoiseValue(std::ref(perlin),(float)(x * noiseZoom), (float)((float)z * noiseZoom), 0.5), z);         
+		    v2 = glm::vec3(x, magnitude * getNoiseValue(std::ref(perlin),(float)(x * noiseZoom), (float)(((float)z + pp) * noiseZoom), 0.5), (z + pp));
+		    v3 = glm::vec3((x + pp), magnitude * getNoiseValue(std::ref(perlin),(float)(((float)x + pp) * noiseZoom), (float)(z * noiseZoom), 0.5), z);
 		    dPos1 = v2 - v1;
 		    dPos2 = v3 - v1;
 		    float zoom = 0.25;
@@ -85,6 +85,12 @@ Entity createTerrain(int Occ,int Seed, int X, int Z, float magnitude, float nois
 		vec.x = uv1.x;
 		vec.y = uv1.y;
 		vertex.UV = vec;
+		if(v1.y<0){
+			vertex.Color=glm::vec3(0.2,0.4,0.9);
+		}
+		else{
+			vertex.Color=glm::vec3(0.2,0.9,0.3);
+		}
 		terrain.Vertices.push_back(vertex);
 	    }
 	}
