@@ -10,11 +10,11 @@
 using namespace std;
 
 float getNoiseValue(noise::module::Perlin &perlin,float x,float y,float z){
-	float value = perlin.GetValue(x,y,z);
+	float value = perlin.GetValue(x,y,z)+0.2;
 	if(value<0){
 		value/=5;
 	}
-	std::cout << "perlin: " << value << std::endl;
+//	std::cout << "perlin: " << value << std::endl;
 	return value;
 }
 
@@ -70,7 +70,7 @@ Entity createTerrain(int Occ,int Seed, int X, int Z, float magnitude, float nois
 		glm::vec3 vector;
 		vector.x = v1.x;
 		vector.y = v1.y;
-		std::cout << "y=" <<  v1.y << std::endl;
+		//std::cout << "y=" <<  v1.y << std::endl;
 		vector.z = v1.z;
 		vertex.Position = vector;
 		vector.x = normX;
@@ -106,6 +106,6 @@ Entity createTerrain(int Occ,int Seed, int X, int Z, float magnitude, float nois
 		terrain.Indices.push_back( (x) + (z+1) * terrainSize);
 	    }
 	}
-	std::cout << "Indices: " << t << std::endl;
+	//std::cout << "Indices: " << t << std::endl;
 	return terrain;
 }

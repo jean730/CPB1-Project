@@ -7,6 +7,7 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define PI 3.14159265
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -17,7 +18,7 @@
 #include <math.h>
 #include <chrono>
 unsigned short int WIDTH=1280;
-unsigned short int HEIGHT=960;
+unsigned short int HEIGHT=720;
 bool WIREFRAME_MODE=false;
 void err(int errnum, const char* err){
 	std::cerr << errnum << " -- " << err << std::endl;
@@ -262,6 +263,13 @@ int main(){
 		}
 
 	}
+	VkPipelineDepthStencilStateCreateInfo depthStencil = {};
+	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencil.depthTestEnable = VK_TRUE;
+	depthStencil.depthWriteEnable = VK_TRUE;
+	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencil.depthBoundsTestEnable = VK_FALSE;
+	depthStencil.stencilTestEnable = VK_FALSE;
 
 	auto fragmentShaderModule = loadShaderModuleFromFile(device,"frag.sprv");
 	auto vertexShaderModule = loadShaderModuleFromFile(device,"vert.sprv");
@@ -395,6 +403,21 @@ int main(){
 	else{
 	    std::cout << "Pipeline layout successfully created." << std::endl;
 	}
+
+	VkAttachmentDescription depthAttachment = {};
+	depthAttachment.format = VK_FORMAT_D32_SFLOAT; 
+	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	VkAttachmentReference depthAttachmentRef = {};
+	depthAttachmentRef.attachment = 1;
+	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+
 	
 
 
@@ -427,12 +450,13 @@ int main(){
 
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &colorAttachmentRef;
+	subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
-	
+	std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
 	VkRenderPassCreateInfo renderPassCreateInfo = {};
 	renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassCreateInfo.attachmentCount = 1;
-	renderPassCreateInfo.pAttachments = &colorAttachment;
+	renderPassCreateInfo.attachmentCount = 2;
+	renderPassCreateInfo.pAttachments =attachments.data();
 	renderPassCreateInfo.subpassCount = 1;
 	renderPassCreateInfo.pSubpasses = &subpass;
 	renderPassCreateInfo.dependencyCount = 1;
@@ -457,6 +481,7 @@ int main(){
 	pipelineCreateInfo.pRasterizationState=&rasterizer;
 	pipelineCreateInfo.pMultisampleState=&multisampler;
 	pipelineCreateInfo.pColorBlendState=&colorBlending;
+	pipelineCreateInfo.pDepthStencilState=&depthStencil;
 	pipelineCreateInfo.layout=pipelineLayout;
 	pipelineCreateInfo.renderPass=renderPass;
 	pipelineCreateInfo.subpass=0;
@@ -471,16 +496,79 @@ int main(){
 	}
 	
 	std::vector<VkFramebuffer> Framebuffers;
+	VkImageView depthImageView;
+	VkImageCreateInfo depthImageInfo = {};
+	depthImageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	depthImageInfo.imageType = VK_IMAGE_TYPE_2D;
+	depthImageInfo.extent.width = WIDTH;
+	depthImageInfo.extent.height = HEIGHT;
+	depthImageInfo.extent.depth = 1;
+	depthImageInfo.mipLevels = 1;
+	depthImageInfo.arrayLayers = 1;
+	depthImageInfo.format = VK_FORMAT_D32_SFLOAT;
+	depthImageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	depthImageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	depthImageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	depthImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	depthImageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	VkImage depthImage;
+	VkDeviceMemory depthImageMemory;
+	if (vkCreateImage(device, &depthImageInfo, nullptr, &depthImage) == VK_SUCCESS) {
+		std::cout << "Depth buffer successfully created." << std::endl;
+	}
+
+	VkMemoryRequirements depthMemoryRequirements;
+	vkGetImageMemoryRequirements(device, depthImage, &depthMemoryRequirements);
+	VkPhysicalDeviceMemoryProperties depthMemoryProperties;
+        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &depthMemoryProperties);
+
+	VkMemoryAllocateInfo depthBufferAllocInfo = {};
+	depthBufferAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	depthBufferAllocInfo.allocationSize = depthMemoryRequirements.size;
+	int tmp=0;
+	for(int i=0;i<depthMemoryProperties.memoryTypeCount;i++){
+		if(depthMemoryRequirements.memoryTypeBits &(1<<i) && (depthMemoryProperties.memoryTypes[i].propertyFlags &
+					(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))==
+					(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)){
+				tmp=i;
+		}
+	}
+	depthBufferAllocInfo.memoryTypeIndex = tmp; 
+
+	if (vkAllocateMemory(device, &depthBufferAllocInfo, nullptr, &depthImageMemory) != VK_SUCCESS) {
+	    throw std::runtime_error("failed to allocate depthImage memory!");
+	}
+
+	vkBindImageMemory(device, depthImage, depthImageMemory, 0);
+
+	VkImageViewCreateInfo depthImageViewCreateInfo = {};
+        depthImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        depthImageViewCreateInfo.image = depthImage;
+        depthImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        depthImageViewCreateInfo.format = VK_FORMAT_D32_SFLOAT;
+        depthImageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        depthImageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        depthImageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        depthImageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        depthImageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        depthImageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+        depthImageViewCreateInfo.subresourceRange.levelCount = 1;
+        depthImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+        depthImageViewCreateInfo.subresourceRange.layerCount = 1;
+	if(vkCreateImageView(device,&depthImageViewCreateInfo,nullptr,&depthImageView)==VK_SUCCESS){
+		std::cout << "Depth Image View successfully created" << std::endl;
+	}
 	Framebuffers.resize(imageCount);
 	for(unsigned int i=0;i<imageCount;i++){
 
 		VkImageView attachments[] = {
-			ImageViews[i]
+			ImageViews[i],
+			depthImageView
 	   	};
 		VkFramebufferCreateInfo framebufferCreateInfo = {};
 		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		framebufferCreateInfo.renderPass = renderPass;
-		framebufferCreateInfo.attachmentCount = 1;
+		framebufferCreateInfo.attachmentCount = 2;
 		framebufferCreateInfo.pAttachments = attachments;
 		framebufferCreateInfo.width = extent.width;
 		framebufferCreateInfo.height = extent.height;
@@ -548,10 +636,12 @@ int main(){
 	Entities[0].Vertices.push_back({{-0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
 	Entities[0].Vertices.push_back({{-0.5,-0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
 	
-	Entities.push_back(createTerrain(3,1,0,0,8.0f,0.02,2));
-	Entities.push_back(createTerrain(3,1,-1,0,8.0f,0.02,2));
-	Entities.push_back(createTerrain(3,1,0,-1,8.0f,0.02,2));
-	Entities.push_back(createTerrain(3,1,-1,-1,8.0f,0.02,2));
+	for(int16_t x=-5;x<5;x++){
+		for(int16_t y=-5;y<5;y++){
+			Entities.push_back(createTerrain(3,1,x,y,16.0f,0.02,2));
+			std::cout << "Generated terrain at " << x << ":" << y << std::endl;
+		}
+	}
 	for (Entity &entity: Entities){
 		entity.createBuffers(std::ref(device),std::ref(physicalDevice));
 	}
@@ -647,6 +737,21 @@ int main(){
 	else{
 	    std::cout << "Command Pool successfully created." << std::endl;
 	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	std::vector<VkCommandBuffer> commandBuffers;
 	commandBuffers.resize(imageCount);
 	
@@ -682,14 +787,56 @@ int main(){
 		vkUpdateDescriptorSets(device, 1, &writeDescriptor, 0, nullptr);
 	}
 	glm::vec3 camPos(0,0,0);
-	glm::vec3 direction(0,0,0);
+	glm::vec2 eyeAngles(0,0);
+	glm::vec3 eyeDirection(0,0,0);
+	glm::vec3 sideDirection(0,0,0);
 	std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
 	std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+	glfwSetInputMode(window,GLFW_CURSOR,GLFW_CURSOR_HIDDEN);
+	bool FORWARD=false;
+	bool BACK=false;
+	bool RIGHT=false;
+	bool LEFT=false;
+	bool UP=false;
+	bool DOWN=false;
+	bool SPRINT=false;
+	float speedMultiplier;
 	while(!glfwWindowShouldClose(window)){
-		camPos=glm::vec3(uniformBufferObject.time*1+50,20,uniformBufferObject.time*1+50);
 		int timeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
-		start = std::chrono::system_clock::now();
 		glfwPollEvents();
+		start = std::chrono::system_clock::now();
+		FORWARD=glfwGetKey(window,GLFW_KEY_W)==GLFW_PRESS;
+		BACK=glfwGetKey(window,GLFW_KEY_S)==GLFW_PRESS;
+		LEFT=glfwGetKey(window,GLFW_KEY_A)==GLFW_PRESS;
+		RIGHT=glfwGetKey(window,GLFW_KEY_D)==GLFW_PRESS;
+		UP=glfwGetKey(window,GLFW_KEY_SPACE)==GLFW_PRESS;
+		DOWN=glfwGetKey(window,GLFW_KEY_LEFT_CONTROL)==GLFW_PRESS;
+		SPRINT=glfwGetKey(window,GLFW_KEY_LEFT_SHIFT)==GLFW_PRESS;
+		speedMultiplier=0.1+SPRINT*0.4;
+		double mx;
+		double my;
+
+		glfwGetCursorPos(window,&mx,&my);
+		eyeAngles.x+=(mx-WIDTH/2)*0.001;
+		if (not ((eyeAngles.y>=PI/2 and (my-HEIGHT/2) > 0) or (eyeAngles.y<=-PI/2 and (my-HEIGHT/2) <0))){
+			eyeAngles.y+=(my-HEIGHT/2)*0.001;
+		}
+		glfwSetCursorPos(window,WIDTH/2,HEIGHT/2);
+		while (eyeAngles.x>=2*PI){
+			eyeAngles.x-=2*PI;
+		}
+		while (eyeAngles.x<=0){
+			eyeAngles.x+=2*PI;
+		}
+
+		eyeDirection = glm::vec3(cos(eyeAngles.x),-sin(eyeAngles.y),sin(eyeAngles.x));
+		sideDirection = glm::vec3(cos(eyeAngles.x+PI/2),0,sin(eyeAngles.x+PI/2));
+		float forward_speed=(FORWARD-BACK)*speedMultiplier;
+		float side_speed=(RIGHT-LEFT)*speedMultiplier;
+		float height_speed=(UP-DOWN)*speedMultiplier;
+		camPos+=glm::vec3((float)eyeDirection.x*forward_speed,0,eyeDirection.z*forward_speed);
+		camPos+=glm::vec3((float)sideDirection.x*side_speed,0,sideDirection.z*side_speed);
+		camPos+=glm::vec3(0,height_speed,0);
 
 		VkCommandBufferAllocateInfo bufferAllocInfo = {};
 		bufferAllocInfo.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -698,10 +845,9 @@ int main(){
 		bufferAllocInfo.commandBufferCount = (uint32_t) commandBuffers.size();
 		vkAllocateCommandBuffers(device, &bufferAllocInfo, commandBuffers.data());
 		uniformBufferObject.time+=timeElapsed*0.001;
-		uniformBufferObject.viewMatrix = glm::lookAt(camPos,direction,glm::vec3(0.0f,1.0f,0.0f));
+		uniformBufferObject.viewMatrix = glm::lookAt(camPos,camPos+eyeDirection,glm::vec3(0.0f,1.0f,0.0f));
 		uniformBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), (float)extent.width/(float)extent.height, 0.1f, 1000.0f);
 		uniformBufferObject.projectionMatrix[1][1] *= -1;
-		uint32_t i = 1;
 		for(unsigned int i=0;i<imageCount;i++){
 			VkCommandBufferBeginInfo beginInfo = {};
 			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -715,15 +861,16 @@ int main(){
 			renderPassInfo.framebuffer = Framebuffers[i];
 			renderPassInfo.renderArea.offset = {0, 0};
 			renderPassInfo.renderArea.extent = extent;
-			VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
-			renderPassInfo.clearValueCount = 1;
-			renderPassInfo.pClearValues = &clearColor;
+			std::array<VkClearValue, 2> clearValues = {};
+			clearValues[0].color = {0.53f, 0.81f, 0.92f, 1.0f};
+			clearValues[1].depthStencil = {1.0f, 0};
+			renderPassInfo.clearValueCount = 2;
+			renderPassInfo.pClearValues = clearValues.data();
 				vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descSets[i], 0, nullptr);
 
 			for (Entity &entity: Entities){
-				entity.Angle.y=uniformBufferObject.time;
 				uniformBufferObject.modelMatrix=glm::mat4(1.0f);
 				uniformBufferObject.modelMatrix = glm::translate(uniformBufferObject.modelMatrix, entity.Position);
 				uniformBufferObject.modelMatrix = glm::rotate(uniformBufferObject.modelMatrix,entity.Angle.y,glm::vec3(0.0f,1.0f,0.0f));
@@ -804,6 +951,8 @@ int main(){
 	vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
 	vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
 
+	vkFreeMemory(device,depthImageMemory,nullptr);
+	vkDestroyImage(device,depthImage,nullptr);
 	vkDestroyCommandPool(device, commandPool, nullptr);
 	for(unsigned int i=0;i<imageCount;i++){
 		vkDestroyFramebuffer(device,Framebuffers[i],nullptr);
