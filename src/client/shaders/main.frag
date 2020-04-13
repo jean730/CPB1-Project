@@ -4,7 +4,7 @@
 layout(location = 0) out vec4 outColor;
 layout(location = 0) in vec3 FragColor;
 layout(location = 1) in vec4 FragPos;
-layout(location = 2) in vec3 FragNorm;
+layout(location = 2) flat in vec3 FragNorm;
 
 layout(binding = 0) uniform UniformBufferObject {
     mat4 model;

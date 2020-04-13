@@ -638,7 +638,7 @@ int main(){
 	
 	for(int16_t x=-5;x<5;x++){
 		for(int16_t y=-5;y<5;y++){
-			Entities.push_back(createTerrain(3,1,x,y,16.0f,0.02,2));
+			Entities.push_back(createTerrain(4,1,x,y,20.0f,0.008,2));
 			std::cout << "Generated terrain at " << x << ":" << y << std::endl;
 		}
 	}
