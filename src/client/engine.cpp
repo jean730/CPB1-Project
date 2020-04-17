@@ -3,6 +3,7 @@
 Engine::Engine(std::string name,int width,int height){
 	this->WIDTH=width;
 	this->HEIGHT=height;
+	this->extent = {width,height};
 	this->engineName=name;
 	this->initVulkan();
 }
@@ -146,6 +147,74 @@ void Engine::initVulkan(){
 		vkGetDeviceQueue(this->logicalDevice, this->graphicsFamily, 0, &this->graphicsQueue);
 	}
 
+	//Create window surface
+	{
+		glfwCreateWindowSurface(this->vkinstance, this->window, nullptr, &this->surface);
+	}
+
+	//Create Swapchain
+	{
+
+		VkBool32 presentSupport = false;
+		vkGetPhysicalDeviceSurfaceSupportKHR(this->physicalDevice, this->graphicsFamily, surface, &presentSupport);
+		if(presentSupport){
+			std::cout << "Queue supports presentation." << std::endl;
+		}
+		else{
+			std::cerr << "This program is not designed to support presentation on a different queue than graphics." << std::endl;
+			glfwTerminate();
+		}
+
+		VkSurfaceCapabilitiesKHR capabilities;
+		std::vector<VkSurfaceFormatKHR> formats;
+		std::vector<VkPresentModeKHR> presentModes;
+		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(this->physicalDevice, surface, &capabilities);
+
+		uint32_t formatCount;
+		vkGetPhysicalDeviceSurfaceFormatsKHR(this->physicalDevice, surface, &formatCount, nullptr);
+		if (formatCount != 0) {
+			formats.resize(formatCount);
+			vkGetPhysicalDeviceSurfaceFormatsKHR(this->physicalDevice, surface, &formatCount, formats.data());
+		}
+
+		uint32_t presentModeCount;
+		vkGetPhysicalDeviceSurfacePresentModesKHR(this->physicalDevice, surface, &presentModeCount, nullptr);
+		if (presentModeCount != 0) {
+			presentModes.resize(presentModeCount);
+			vkGetPhysicalDeviceSurfacePresentModesKHR(this->physicalDevice, surface, &presentModeCount, presentModes.data());
+		}
+
+		this->format = formats[0];
+		VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
+		for(unsigned int i=0;i<presentModeCount;i++){
+			if(presentModes[i]==VK_PRESENT_MODE_MAILBOX_KHR){
+				presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+				std::cout << "Surface supports triple buffering." << std::endl;
+			}
+		}
+
+		this->imageCount=capabilities.minImageCount+1;
+		if(capabilities.minImageCount == capabilities.maxImageCount){
+			this->imageCount-=1;
+		}
+
+		VkSwapchainCreateInfoKHR swapchainCreateInfo = {};
+		swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+		swapchainCreateInfo.surface = this->surface;
+		swapchainCreateInfo.minImageCount = this->imageCount;
+		swapchainCreateInfo.imageFormat = this->format.format;
+		swapchainCreateInfo.imageColorSpace = this->format.colorSpace;
+		swapchainCreateInfo.imageExtent = this->extent;
+		swapchainCreateInfo.imageArrayLayers = 1;
+		swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		swapchainCreateInfo.preTransform = capabilities.currentTransform;
+		swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+		swapchainCreateInfo.presentMode = presentMode;
+		swapchainCreateInfo.clipped = VK_TRUE;
+		swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
+		vkCreateSwapchainKHR(this->logicalDevice,&swapchainCreateInfo,nullptr,&this->swapchain);
+	}
 
 
 }

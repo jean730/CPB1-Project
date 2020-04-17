@@ -18,91 +18,18 @@
 #include <math.h>
 #include <chrono>
 #include <thread>
-unsigned short int WIDTH=1280;
-unsigned short int HEIGHT=720;
 bool WIREFRAME_MODE=false;
 int main(){
 	Engine *engineInstance = new Engine("Test Engine",1280,720);
 
-
-
-	VkSurfaceKHR surface;
-	if ( glfwCreateWindowSurface(engineInstance->vkinstance, engineInstance->window, nullptr, &surface) != VK_SUCCESS){
-		std::cerr << "Cannot create engineInstance->window surface " << std::endl ;
-		glfwTerminate();
-	}
-	VkBool32 presentSupport = false;
-	vkGetPhysicalDeviceSurfaceSupportKHR(engineInstance->physicalDevice, engineInstance->graphicsFamily, surface, &presentSupport);
-	if(presentSupport){
-		std::cout << "Queue supports presentation." << std::endl;
-	}
-	else{
-		std::cerr << "This program is not designed to support presentation on a different queue than graphics." << std::endl;
-		glfwTerminate();
-	}
-	VkSurfaceCapabilitiesKHR capabilities;
-	std::vector<VkSurfaceFormatKHR> formats;
-	std::vector<VkPresentModeKHR> presentModes;
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(engineInstance->physicalDevice, surface, &capabilities);
-
-	uint32_t formatCount;
-	vkGetPhysicalDeviceSurfaceFormatsKHR(engineInstance->physicalDevice, surface, &formatCount, nullptr);
-	if (formatCount != 0) {
-		formats.resize(formatCount);
-		vkGetPhysicalDeviceSurfaceFormatsKHR(engineInstance->physicalDevice, surface, &formatCount, formats.data());
-	}
-
-	uint32_t presentModeCount;
-	vkGetPhysicalDeviceSurfacePresentModesKHR(engineInstance->physicalDevice, surface, &presentModeCount, nullptr);
-	if (presentModeCount != 0) {
-		presentModes.resize(presentModeCount);
-		vkGetPhysicalDeviceSurfacePresentModesKHR(engineInstance->physicalDevice, surface, &presentModeCount, presentModes.data());
-	}
-	
-	VkSurfaceFormatKHR format = formats[0];
-	VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
-	for(unsigned int i=0;i<presentModeCount;i++){
-		if(presentModes[i]==VK_PRESENT_MODE_MAILBOX_KHR){
-			presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-			std::cout << "Surface supports triple buffering." << std::endl;
-		}
-	}
-	VkExtent2D extent = {WIDTH,HEIGHT};
-	uint32_t imageCount=capabilities.minImageCount+1;
-	if(capabilities.minImageCount == capabilities.maxImageCount){
-		imageCount-=1;
-	}
-	VkSwapchainCreateInfoKHR swapchainCreateInfo = {};
-	swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	swapchainCreateInfo.surface = surface;
-	swapchainCreateInfo.minImageCount = imageCount;
-	swapchainCreateInfo.imageFormat = format.format;
-	swapchainCreateInfo.imageColorSpace = format.colorSpace;
-	swapchainCreateInfo.imageExtent = extent;
-	swapchainCreateInfo.imageArrayLayers = 1;
-	swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	swapchainCreateInfo.preTransform = capabilities.currentTransform;
-	swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	swapchainCreateInfo.presentMode = presentMode;
-	swapchainCreateInfo.clipped = VK_TRUE;
-	swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
-	VkSwapchainKHR swapchain;
-	if(vkCreateSwapchainKHR(engineInstance->logicalDevice,&swapchainCreateInfo,nullptr,&swapchain) != VK_SUCCESS){
-		std::cerr << "Could not create swap chain." << std::endl;
-		glfwTerminate();
-	}
-	else{
-		std::cout << "Swapchain successfully created." << std::endl;
-	}
 	std::vector<VkImage> swapChainImages;
-	vkGetSwapchainImagesKHR(engineInstance->logicalDevice, swapchain, &imageCount, nullptr);
-	swapChainImages.resize(imageCount);
-	vkGetSwapchainImagesKHR(engineInstance->logicalDevice, swapchain, &imageCount, swapChainImages.data());
-	VkFormat swapChainImageFormat = format.format;
+	vkGetSwapchainImagesKHR(engineInstance->logicalDevice, engineInstance->swapchain, &engineInstance->imageCount, nullptr);
+	swapChainImages.resize(engineInstance->imageCount);
+	vkGetSwapchainImagesKHR(engineInstance->logicalDevice, engineInstance->swapchain, &engineInstance->imageCount, swapChainImages.data());
+	VkFormat swapChainImageFormat = engineInstance->format.format;
 	std::vector<VkImageView> ImageViews;
-	ImageViews.resize(imageCount);
-	for(unsigned int i=0;i<imageCount;i++){
+	ImageViews.resize(engineInstance->imageCount);
+	for(unsigned int i=0;i<engineInstance->imageCount;i++){
 		VkImageViewCreateInfo imageViewCreateInfo = {};
 		imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		imageViewCreateInfo.image = swapChainImages[i];
@@ -183,14 +110,14 @@ int main(){
 	VkViewport viewport = {};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
-	viewport.width = (float)extent.width;
-	viewport.height = (float)extent.height;
+	viewport.width = (float)engineInstance->extent.width;
+	viewport.height = (float)engineInstance->extent.height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
 	VkRect2D scissor = {};
 	scissor.offset = {0, 0};
-	scissor.extent = extent;
+	scissor.extent = engineInstance->extent;
 
 	VkPipelineViewportStateCreateInfo viewportStateInfo = {};
 	viewportStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -360,8 +287,8 @@ int main(){
 	VkImageCreateInfo depthImageInfo = {};
 	depthImageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	depthImageInfo.imageType = VK_IMAGE_TYPE_2D;
-	depthImageInfo.extent.width = WIDTH;
-	depthImageInfo.extent.height = HEIGHT;
+	depthImageInfo.extent.width = engineInstance->extent.width;
+	depthImageInfo.extent.height = engineInstance->extent.height;
 	depthImageInfo.extent.depth = 1;
 	depthImageInfo.mipLevels = 1;
 	depthImageInfo.arrayLayers = 1;
@@ -418,8 +345,8 @@ int main(){
 	if(vkCreateImageView(engineInstance->logicalDevice,&depthImageViewCreateInfo,nullptr,&depthImageView)==VK_SUCCESS){
 		std::cout << "Depth Image View successfully created" << std::endl;
 	}
-	Framebuffers.resize(imageCount);
-	for(unsigned int i=0;i<imageCount;i++){
+	Framebuffers.resize(engineInstance->imageCount);
+	for(unsigned int i=0;i<engineInstance->imageCount;i++){
 
 		VkImageView attachments[] = {
 			ImageViews[i],
@@ -430,8 +357,8 @@ int main(){
 		framebufferCreateInfo.renderPass = renderPass;
 		framebufferCreateInfo.attachmentCount = 2;
 		framebufferCreateInfo.pAttachments = attachments;
-		framebufferCreateInfo.width = extent.width;
-		framebufferCreateInfo.height = extent.height;
+		framebufferCreateInfo.width = engineInstance->extent.width;
+		framebufferCreateInfo.height = engineInstance->extent.height;
 		framebufferCreateInfo.layers = 1;
 		
 		if (vkCreateFramebuffer(engineInstance->logicalDevice, &framebufferCreateInfo, nullptr, &Framebuffers[i]) != VK_SUCCESS) {
@@ -539,14 +466,14 @@ int main(){
 
 	VkDescriptorPoolSize descPoolSize = {
 		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		imageCount
+		engineInstance->imageCount
 	};
 
 	VkDescriptorPoolCreateInfo descPoolCreateInfo = {
 		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 		NULL,
 		0,
-		imageCount,
+		engineInstance->imageCount,
 		1,
 		&descPoolSize
 	};
@@ -561,17 +488,17 @@ int main(){
 		std::cout << "Descriptor Pool successfully created." << std::endl;
         }
 
-	std::vector<VkDescriptorSetLayout> layouts(imageCount, descriptorSetLayout);
+	std::vector<VkDescriptorSetLayout> layouts(engineInstance->imageCount, descriptorSetLayout);
 
 	VkDescriptorSetAllocateInfo descAllocInfo = {
 		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		NULL,
 		descPool,
-		imageCount,
+		engineInstance->imageCount,
 		layouts.data()
 	};
 
-	std::vector<VkDescriptorSet> descSets(imageCount);
+	std::vector<VkDescriptorSet> descSets(engineInstance->imageCount);
 	if(vkAllocateDescriptorSets(engineInstance->logicalDevice,&descAllocInfo,descSets.data())  != VK_SUCCESS) {
                 std::cerr << "Could not create Descriptor Sets " << std::endl;
                 glfwTerminate();
@@ -613,7 +540,7 @@ int main(){
 
 
 	std::vector<VkCommandBuffer> commandBuffers;
-	commandBuffers.resize(imageCount);
+	commandBuffers.resize(engineInstance->imageCount);
 	
 	VkSemaphoreCreateInfo semaphoreInfo = {};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -630,7 +557,7 @@ int main(){
 	uniformBufferStruct uniformBufferObject={};
 	uniformBufferObject.time=0;	
 
-	for(unsigned int i=0;i<imageCount;i++){
+	for(unsigned int i=0;i<engineInstance->imageCount;i++){
 		VkDescriptorBufferInfo descBufferInfo = {
 			uniformBuffer,
 			0,
@@ -685,11 +612,11 @@ int main(){
 		double my;
 
 		glfwGetCursorPos(engineInstance->window,&mx,&my);
-		eyeAngles.x+=(mx-WIDTH/2)*0.001;
-		if (not ((eyeAngles.y>=PI/2 and (my-HEIGHT/2) > 0) or (eyeAngles.y<=-PI/2 and (my-HEIGHT/2) <0))){
-			eyeAngles.y+=(my-HEIGHT/2)*0.001;
+		eyeAngles.x+=(mx-engineInstance->extent.width/2)*0.001;
+		if (not ((eyeAngles.y>=PI/2 and (my-engineInstance->extent.height/2) > 0) or (eyeAngles.y<=-PI/2 and (my-engineInstance->extent.height/2) <0))){
+			eyeAngles.y+=(my-engineInstance->extent.height/2)*0.001;
 		}
-		glfwSetCursorPos(engineInstance->window,WIDTH/2,HEIGHT/2);
+		glfwSetCursorPos(engineInstance->window,engineInstance->extent.width/2,engineInstance->extent.height/2);
 		while (eyeAngles.x>=2*PI){
 			eyeAngles.x-=2*PI;
 		}
@@ -714,13 +641,13 @@ int main(){
 		vkAllocateCommandBuffers(engineInstance->logicalDevice, &bufferAllocInfo, commandBuffers.data());
 		uniformBufferObject.time+=timeElapsed*0.001;
 		uniformBufferObject.viewMatrix = glm::lookAt(camPos,camPos+eyeDirection,glm::vec3(0.0f,1.0f,0.0f));
-		uniformBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), (float)extent.width/(float)extent.height, 0.1f, 1000.0f);
+		uniformBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), (float)engineInstance->extent.width/(float)engineInstance->extent.height, 0.1f, 1000.0f);
 		uniformBufferObject.projectionMatrix[1][1] *= -1;
 		VkRenderPassBeginInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.renderPass = renderPass;
 		renderPassInfo.renderArea.offset = {0, 0};
-		renderPassInfo.renderArea.extent = extent;
+		renderPassInfo.renderArea.extent = engineInstance->extent;
 		std::array<VkClearValue, 2> clearValues = {};
 		clearValues[0].color = {0.53f, 0.81f, 0.92f, 1.0f};
 		clearValues[1].depthStencil = {1.0f, 0};
@@ -728,7 +655,7 @@ int main(){
 		renderPassInfo.pClearValues = clearValues.data();
 		VkCommandBufferBeginInfo beginInfo = {};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		for(unsigned int i=0;i<imageCount;i++){
+		for(unsigned int i=0;i<engineInstance->imageCount;i++){
 			renderPassInfo.framebuffer = Framebuffers[i];
 
 			vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
@@ -764,12 +691,12 @@ int main(){
 			vkCmdEndRenderPass(commandBuffers[i]);
 			vkEndCommandBuffer(commandBuffers[i]);
 		}
-		for(int i=0;i<imageCount;i++){
+		for(int i=0;i<engineInstance->imageCount;i++){
 			vkWaitForFences(engineInstance->logicalDevice, 1, &Fence, VK_TRUE, UINT64_MAX);
 			vkResetFences(engineInstance->logicalDevice, 1, &Fence);
 
 			uint32_t imageIndex;
-			vkAcquireNextImageKHR(engineInstance->logicalDevice, swapchain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+			vkAcquireNextImageKHR(engineInstance->logicalDevice, engineInstance->swapchain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 			VkSubmitInfo submitInfo = {};
 			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -793,14 +720,14 @@ int main(){
 			presentInfo.waitSemaphoreCount = 1;
 			presentInfo.pWaitSemaphores = signalSemaphores;
 
-			VkSwapchainKHR swapchains[] = {swapchain};
+			VkSwapchainKHR swapchains[] = {engineInstance->swapchain};
 			presentInfo.swapchainCount = 1;
 			presentInfo.pSwapchains = swapchains;
 			presentInfo.pImageIndices = &imageIndex;
 			vkQueuePresentKHR(engineInstance->graphicsQueue, &presentInfo);
 			vkQueueWaitIdle(engineInstance->graphicsQueue);
 		}
-		vkFreeCommandBuffers(engineInstance->logicalDevice,commandPool,imageCount,commandBuffers.data());
+		vkFreeCommandBuffers(engineInstance->logicalDevice,commandPool,engineInstance->imageCount,commandBuffers.data());
 		vkResetCommandPool(engineInstance->logicalDevice,commandPool,VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
 
 
@@ -826,7 +753,7 @@ int main(){
 	vkDestroyImage(engineInstance->logicalDevice,depthImage,nullptr);
 	vkDestroyImageView(engineInstance->logicalDevice,depthImageView,nullptr);
 	vkDestroyCommandPool(engineInstance->logicalDevice, commandPool, nullptr);
-	for(unsigned int i=0;i<imageCount;i++){
+	for(unsigned int i=0;i<engineInstance->imageCount;i++){
 		vkDestroyFramebuffer(engineInstance->logicalDevice,Framebuffers[i],nullptr);
 	}
 
@@ -835,15 +762,15 @@ int main(){
 	vkDestroyRenderPass(engineInstance->logicalDevice, renderPass, nullptr);
 	vkDestroyShaderModule(engineInstance->logicalDevice, fragmentShaderModule, nullptr);
 	vkDestroyShaderModule(engineInstance->logicalDevice, vertexShaderModule, nullptr);
-	for(unsigned int i=0;i<imageCount;i++){
+	for(unsigned int i=0;i<engineInstance->imageCount;i++){
 		vkDestroyImageView(engineInstance->logicalDevice,ImageViews[i],nullptr);
 	}
-	vkDestroySwapchainKHR(engineInstance->logicalDevice, swapchain, nullptr);
+	vkDestroySwapchainKHR(engineInstance->logicalDevice, engineInstance->swapchain, nullptr);
 	vkDestroyBuffer(engineInstance->logicalDevice, uniformBuffer, nullptr);
 	vkFreeMemory(engineInstance->logicalDevice,uniformBufferMemory,nullptr);
 	vkDestroyDescriptorPool(engineInstance->logicalDevice, descPool, nullptr);
 	vkDestroyDescriptorSetLayout(engineInstance->logicalDevice, descriptorSetLayout, nullptr);
-	vkDestroySurfaceKHR(engineInstance->vkinstance,surface, nullptr);
+	vkDestroySurfaceKHR(engineInstance->vkinstance,engineInstance->surface, nullptr);
 	vkDestroyDevice(engineInstance->logicalDevice,nullptr);
 	vkDestroyInstance(engineInstance->vkinstance, NULL);
 	glfwDestroyWindow(engineInstance->window);

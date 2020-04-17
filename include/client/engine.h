@@ -13,6 +13,7 @@ public:
 
 	int WIDTH;
 	int HEIGHT;
+	VkExtent2D extent;
 	std::string engineName;
 
 	VkInstance vkinstance;
@@ -22,11 +23,16 @@ public:
 	VkPhysicalDevice physicalDevice = NULL;
 	VkDevice logicalDevice = NULL;
 
-	//Queue families IDs
+	//Queue
 	uint32_t graphicsFamily;
-
-	//Queues
 	VkQueue graphicsQueue;
+
+	VkSurfaceKHR surface;
+	VkSurfaceFormatKHR format;
+
+	VkSwapchainKHR swapchain;
+
+	uint32_t imageCount;
 
 };
 #endif
