@@ -1,5 +1,4 @@
 #include "client/engine.h"
-
 Engine::Engine(std::string name,int width,int height){
 	this->WIDTH=width;
 	this->HEIGHT=height;
@@ -23,7 +22,7 @@ void Engine::initVulkan(){
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
-        this->window = glfwCreateWindow(WIDTH, HEIGHT, "test", NULL,NULL);
+        this->window = glfwCreateWindow(WIDTH, HEIGHT, this->engineName.c_str(), NULL,NULL);
 
 	//Initialize a vulkan instance:
 	{
@@ -216,5 +215,15 @@ void Engine::initVulkan(){
 		vkCreateSwapchainKHR(this->logicalDevice,&swapchainCreateInfo,nullptr,&this->swapchain);
 	}
 
+
+}
+
+void Engine::initTerrain(int size){
+	for(int16_t x=-size;x<size;x++){
+                for(int16_t y=-size;y<size;y++){
+                        this->Entities.push_back(createTerrain(4,1,x,y,20.0f,0.008,2));
+			this->Entities[Entities.size()-1].createBuffers(this->logicalDevice,this->physicalDevice);
+                }
+        }
 
 }

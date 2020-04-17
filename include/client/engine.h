@@ -4,6 +4,8 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
+#include "client/entity.h"
+#include "client/terrain.h"
 class Engine {
 public:
 	Engine(std::string name,int width,int height);
@@ -11,6 +13,9 @@ public:
 
 	GLFWwindow *window;
 
+	std::vector<Entity> Entities;
+	void initTerrain(int size);
+	
 	int WIDTH;
 	int HEIGHT;
 	VkExtent2D extent;

@@ -21,6 +21,7 @@
 bool WIREFRAME_MODE=false;
 int main(){
 	Engine *engineInstance = new Engine("Test Engine",1280,720);
+	engineInstance->initTerrain(5);
 
 	std::vector<VkImage> swapChainImages;
 	vkGetSwapchainImagesKHR(engineInstance->logicalDevice, engineInstance->swapchain, &engineInstance->imageCount, nullptr);
@@ -370,68 +371,6 @@ int main(){
 		}
 	}
 
-	std::vector<Entity> Entities;
-	Entities.push_back(Entity());
-	Entities[0].Position = glm::vec3(0,5,0);
-	Entities[0].Angle = glm::vec3(0,0,0);
-
-	//RIGHT
-	Entities[0].Vertices.push_back({{0.5,-0.5,-0.5},{1,0,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,0.5,-0.5},{0,1,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,-0.5,-0.5},{1,0,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,0.5,-0.5},{0,1,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,-0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
-
-	//LEFT
-	Entities[0].Vertices.push_back({{0.5,0.5,0.5},{0,0,1},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,0.5,0.5},{0,1,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,0.5,0.5},{0,1,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,-0.5,0.5},{0,0,1},{0,0,0},{0,0}});
-
-	//DOWN
-	Entities[0].Vertices.push_back({{0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,-0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,-0.5,0.5},{0,1,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,-0.5,0.5},{0,1,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,-0.5,-0.5},{1,0,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,-0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
-
-	//UP
-	Entities[0].Vertices.push_back({{0.5,0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,0.5,0.5},{1,0,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,0.5,0.5},{0,1,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,0.5,-0.5},{1,0,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,0.5,0.5},{0,1,0},{0,0,0},{0,0}});
-	
-	//FRONT
-	Entities[0].Vertices.push_back({{0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,0.5,0.5},{0,0,1},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,0.5,-0.5},{0,1,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,0.5,-0.5},{0,1,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{0.5,-0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
-
-	//BACK
-	Entities[0].Vertices.push_back({{-0.5,0.5,0.5},{0,0,1},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,0.5,-0.5},{0,1,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,0.5,-0.5},{0,1,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,-0.5,0.5},{1,0,0},{0,0,0},{0,0}});
-	Entities[0].Vertices.push_back({{-0.5,-0.5,-0.5},{0,0,1},{0,0,0},{0,0}});
-	
-	for(int16_t x=-5;x<5;x++){
-		for(int16_t y=-5;y<5;y++){
-			Entities.push_back(createTerrain(4,1,x,y,20.0f,0.008,2));
-			std::cout << "Generated terrain at " << x << ":" << y << std::endl;
-		}
-	}
-	for (Entity &entity: Entities){
-		entity.createBuffers(std::ref(engineInstance->logicalDevice),std::ref(engineInstance->physicalDevice));
-	}
 	VkBuffer uniformBuffer;
 	VkDeviceMemory uniformBufferMemory;
 	
@@ -663,8 +602,8 @@ int main(){
 			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descSets[i], 0, nullptr);
 
-			for (Entity &entity: Entities){
-				uniformBufferObject.modelMatrix=glm::mat4(1.0f);
+			for (Entity &entity: engineInstance->Entities){
+				uniformBufferObject.modelMatrix = glm::mat4(1.0f);
 				uniformBufferObject.modelMatrix = glm::translate(uniformBufferObject.modelMatrix, entity.Position);
 				uniformBufferObject.modelMatrix = glm::rotate(uniformBufferObject.modelMatrix,entity.Angle.y,glm::vec3(0.0f,1.0f,0.0f));
 				uniformBufferObject.modelMatrix = glm::rotate(uniformBufferObject.modelMatrix,entity.Angle.x,glm::vec3(1.0f,0.0f,0.0f));
@@ -741,7 +680,7 @@ int main(){
 
 
 	vkDeviceWaitIdle(engineInstance->logicalDevice);
-	for (Entity &entity : Entities){
+	for (Entity &entity : engineInstance->Entities){
 		entity.destroyBuffers(engineInstance->logicalDevice);
 	}
 	
