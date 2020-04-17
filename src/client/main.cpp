@@ -25,41 +25,9 @@ int main(){
 
 
 
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-	uint32_t deviceCount = 0;
-	vkEnumeratePhysicalDevices(engineInstance->vkinstance, &deviceCount, nullptr);
-	std::vector<VkPhysicalDevice> devices(deviceCount);
-	vkEnumeratePhysicalDevices(engineInstance->vkinstance, &deviceCount, devices.data());
-	std::cout << "Available devices:" << std::endl;
-	std::string deviceName;
-	for (long unsigned int i=0;i<devices.size();i++) {
-		VkPhysicalDeviceProperties vkp;
-		vkGetPhysicalDeviceProperties(devices[i],&vkp);
-		std::cout << "\t- " << vkp.deviceName << std::endl;
-		if(physicalDevice==NULL or
-				vkp.deviceType==VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){
-			physicalDevice=devices[i];
-			deviceName=vkp.deviceName;
-		}
-	}
-	std::cout << "Selected device: " << std::endl
-	<< "\t- " << deviceName << std::endl;
-
-	uint32_t graphicsFamilyID;
-	uint32_t queueFamilyCount = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
-	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
-	for (long unsigned int i=0;i<queueFamilies.size();i++) {
-		if(queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT){
-			graphicsFamilyID = i;
-			std::cout << "Graphics queue family ID:" << std::endl
-			<< "\t- " << i << std::endl;
-		}
-	}
 	VkDeviceQueueCreateInfo queueCreateInfo = {};
 	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	queueCreateInfo.queueFamilyIndex = graphicsFamilyID;
+	queueCreateInfo.queueFamilyIndex = engineInstance->graphicsFamily;
 	queueCreateInfo.queueCount = 1;
 	float priority = 1.0f;
 	queueCreateInfo.pQueuePriorities = &priority;
@@ -76,19 +44,19 @@ int main(){
 	devCreateInfo.enabledExtensionCount = logicalExtensionVector.size();
 	devCreateInfo.ppEnabledExtensionNames = logicalExtensionVector.data();
 	VkDevice device = nullptr;
-	if (vkCreateDevice(physicalDevice, &devCreateInfo, nullptr, &device) != VK_SUCCESS) {
+	if (vkCreateDevice(engineInstance->physicalDevice, &devCreateInfo, nullptr, &device) != VK_SUCCESS) {
 		std::cerr << "Failed to create logical device." << std::endl ;
 		glfwTerminate();
 	}
 	VkQueue graphicsQueue;
-	vkGetDeviceQueue(device, graphicsFamilyID, 0, &graphicsQueue);
+	vkGetDeviceQueue(device, engineInstance->graphicsFamily, 0, &graphicsQueue);
 	VkSurfaceKHR surface;
 	if ( glfwCreateWindowSurface(engineInstance->vkinstance, engineInstance->window, nullptr, &surface) != VK_SUCCESS){
 		std::cerr << "Cannot create engineInstance->window surface " << std::endl ;
 		glfwTerminate();
 	}
 	VkBool32 presentSupport = false;
-	vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, graphicsFamilyID, surface, &presentSupport);
+	vkGetPhysicalDeviceSurfaceSupportKHR(engineInstance->physicalDevice, engineInstance->graphicsFamily, surface, &presentSupport);
 	if(presentSupport){
 		std::cout << "Queue supports presentation." << std::endl;
 	}
@@ -99,20 +67,20 @@ int main(){
 	VkSurfaceCapabilitiesKHR capabilities;
 	std::vector<VkSurfaceFormatKHR> formats;
 	std::vector<VkPresentModeKHR> presentModes;
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &capabilities);
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(engineInstance->physicalDevice, surface, &capabilities);
 
 	uint32_t formatCount;
-	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(engineInstance->physicalDevice, surface, &formatCount, nullptr);
 	if (formatCount != 0) {
 		formats.resize(formatCount);
-		vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, formats.data());
+		vkGetPhysicalDeviceSurfaceFormatsKHR(engineInstance->physicalDevice, surface, &formatCount, formats.data());
 	}
 
 	uint32_t presentModeCount;
-	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(engineInstance->physicalDevice, surface, &presentModeCount, nullptr);
 	if (presentModeCount != 0) {
 		presentModes.resize(presentModeCount);
-		vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, presentModes.data());
+		vkGetPhysicalDeviceSurfacePresentModesKHR(engineInstance->physicalDevice, surface, &presentModeCount, presentModes.data());
 	}
 	
 	VkSurfaceFormatKHR format = formats[0];
@@ -436,7 +404,7 @@ int main(){
 	VkMemoryRequirements depthMemoryRequirements;
 	vkGetImageMemoryRequirements(device, depthImage, &depthMemoryRequirements);
 	VkPhysicalDeviceMemoryProperties depthMemoryProperties;
-        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &depthMemoryProperties);
+        vkGetPhysicalDeviceMemoryProperties(engineInstance->physicalDevice, &depthMemoryProperties);
 
 	VkMemoryAllocateInfo depthBufferAllocInfo = {};
 	depthBufferAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -559,7 +527,7 @@ int main(){
 		}
 	}
 	for (Entity &entity: Entities){
-		entity.createBuffers(std::ref(device),std::ref(physicalDevice));
+		entity.createBuffers(std::ref(device),std::ref(engineInstance->physicalDevice));
 	}
 	VkBuffer uniformBuffer;
 	VkDeviceMemory uniformBufferMemory;
@@ -572,7 +540,7 @@ int main(){
 	vkCreateBuffer(device, &uniformBufferCreateInfo, nullptr, &uniformBuffer);
 	VkMemoryRequirements memoryRequirements;
 	VkPhysicalDeviceMemoryProperties memoryProperties;
-	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+	vkGetPhysicalDeviceMemoryProperties(engineInstance->physicalDevice, &memoryProperties);
 	vkGetBufferMemoryRequirements(device, uniformBuffer, &memoryRequirements);
 	int memoryType=0;
 	for(unsigned int i=0;i<memoryProperties.memoryTypeCount;i++){
@@ -644,7 +612,7 @@ int main(){
 	VkCommandPool commandPool;
 	VkCommandPoolCreateInfo poolCreateInfo = {};
 	poolCreateInfo.sType=VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolCreateInfo.queueFamilyIndex=graphicsFamilyID;
+	poolCreateInfo.queueFamilyIndex=engineInstance->graphicsFamily;
 	poolCreateInfo.flags=VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 	if (vkCreateCommandPool(device, &poolCreateInfo, nullptr, &commandPool) != VK_SUCCESS) {
 		std::cerr << "Could not create Command Pool " << std::endl;

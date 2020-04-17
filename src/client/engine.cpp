@@ -73,5 +73,42 @@ void Engine::initVulkan(){
 
 	}
 
+	//Select a physical device
+	{
+		uint32_t deviceCount = 0;
+		vkEnumeratePhysicalDevices(this->vkinstance, &deviceCount, nullptr);
+		std::vector<VkPhysicalDevice> devices(deviceCount);
+		vkEnumeratePhysicalDevices(this->vkinstance, &deviceCount, devices.data());
+		std::cout << "Available devices:" << std::endl;
+		std::string deviceName;
+		for (uint32_t i=0;i<devices.size();i++) {
+			VkPhysicalDeviceProperties physicalDeviceProperties;
+			vkGetPhysicalDeviceProperties(devices[i],&physicalDeviceProperties);
+			std::cout << "\t- " << physicalDeviceProperties.deviceName << std::endl;
+			//Select the first GPU then search for a discrete one.
+			if(this->physicalDevice==NULL or
+					physicalDeviceProperties.deviceType==VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){
+				this->physicalDevice=devices[i];
+				deviceName=physicalDeviceProperties.deviceName;
+			}
+		}
+		std::cout << "Selected device: " << std::endl << "\t- " << deviceName << std::endl;
+
+	}
+	
+	//Get queue families IDs
+	{
+		uint32_t queueFamilyCount;
+		vkGetPhysicalDeviceQueueFamilyProperties(this->physicalDevice, &queueFamilyCount, nullptr);
+		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+		vkGetPhysicalDeviceQueueFamilyProperties(this->physicalDevice, &queueFamilyCount, queueFamilies.data());
+		for (long unsigned int i=0;i<queueFamilies.size();i++) {
+			if(queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT){
+				this->graphicsFamily = i;
+				std::cout << "Graphics queue family ID:" << std::endl << "\t- " << i << std::endl;
+			}
+		}
+
+	}
 
 }

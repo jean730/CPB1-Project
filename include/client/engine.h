@@ -8,12 +8,21 @@ class Engine {
 public:
 	Engine(std::string name,int width,int height);
 	void initVulkan();
+
 	GLFWwindow *window;
+
 	int WIDTH;
 	int HEIGHT;
 	std::string engineName;
+
 	VkInstance vkinstance;
 	VkApplicationInfo applicationInfo = {};
+	
+	//Devices
+	VkPhysicalDevice physicalDevice;
+
+	//Queue families IDs
+	uint32_t graphicsFamily;
 
 };
 #endif
