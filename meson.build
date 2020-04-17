@@ -3,6 +3,8 @@ src=[
   'src/client/main.cpp',
   'src/client/entity.cpp',
   'src/client/terrain.cpp',
+  'src/client/engine.cpp',
+  'src/client/shaderloader.cpp',
 ]
 vulkan=dependency('vulkan')
 glm=dependency('glm')

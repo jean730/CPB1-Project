@@ -1,5 +1,3 @@
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
 #include <functional>
 #include <iostream>
 #include <fstream>
@@ -15,105 +13,23 @@
 #include "client/entity.h"
 #include "client/uniform.h"
 #include "client/terrain.h"
+#include "client/engine.h"
+#include "client/shaderloader.h"
 #include <math.h>
 #include <chrono>
 unsigned short int WIDTH=1280;
 unsigned short int HEIGHT=720;
 bool WIREFRAME_MODE=false;
-void err(int errnum, const char* err){
-	std::cerr << errnum << " -- " << err << std::endl;
-}
-VkShaderModule loadShaderModuleFromFile(VkDevice device,std::string filename){
-	std::ifstream file(filename,std::ios::ate | std::ios::binary);
-	unsigned int filesize = file.tellg();
-	file.seekg(0);
-	std::vector<char> bytecode(filesize);
-	file.read(bytecode.data(), filesize);
-	VkShaderModuleCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	createInfo.codeSize = bytecode.size();
-	createInfo.pCode = reinterpret_cast<const uint32_t*>(bytecode.data());
-	VkShaderModule shaderModule;
-	if(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule)==VK_SUCCESS){
-		std::cout << "Loaded shader " << filename << std::endl;
-		return shaderModule;
-	}
-	else{
-		std::cerr << "Failed to load shader " << filename << std::endl;
-		return NULL;
-	}
-}
 int main(){
-	glfwSetErrorCallback(err);
-	if(!glfwInit()){
-		std::cerr << "glfw did not initialize !" << std::endl;
-		glfwTerminate();
-		return -1;
-	}
-	if(glfwVulkanSupported() == GLFW_FALSE){
-		std::cerr << "Vulkan Not Supported !" << std::endl;
-		glfwTerminate();
-		return -1;
-	}
+	Engine *engineInstance = new Engine("Test Engine",1280,720);
 
-	GLFWwindow *window;
 
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
 
-	window = glfwCreateWindow(WIDTH, HEIGHT, "test", NULL,NULL);
-
-	VkInstance vkinstance;
-	VkApplicationInfo applicationInfo = {};
-	applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	applicationInfo.pApplicationName = "test";
-	applicationInfo.applicationVersion = VK_MAKE_VERSION(1, 1, 0);
-	applicationInfo.pEngineName = "test";
-	applicationInfo.engineVersion = VK_MAKE_VERSION(1, 1, 0);
-	applicationInfo.apiVersion = VK_API_VERSION_1_1;
-
-	VkInstanceCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	createInfo.pApplicationInfo = &applicationInfo;
-
-	unsigned int count=0;
-	const char** exts = glfwGetRequiredInstanceExtensions(&count);
-	std::vector<const char*> extensionVector;
-	for(unsigned int i=0;i<count;i++){
-		extensionVector.push_back(exts[i]);
-	}
-	extensionVector.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-	createInfo.enabledExtensionCount = count;
-	createInfo.ppEnabledExtensionNames = extensionVector.data();
-	uint32_t layerCount;
-	vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-	std::vector<VkLayerProperties> availableLayers(layerCount);
-	vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-	std::vector<const char*> selectedLayers;
-//	selectedLayers.push_back("VK_LAYER_KHRONOS_validation");
-	selectedLayers.push_back("VK_LAYER_LUNARG_standard_validation");
-	createInfo.enabledLayerCount = selectedLayers.size();
-	createInfo.ppEnabledLayerNames=selectedLayers.data();
-	std::cout << "Available Layers:" << std::endl;
-	for(unsigned int i=0;i<availableLayers.size();i++){
-		std::cout << "\t- " << availableLayers[i].layerName << std::endl;
-	}
-	std::cout << "Selected Layers:" << std::endl;
-	for(unsigned int i=0;i<selectedLayers.size();i++){
-		std::cout << "\t- " << selectedLayers[i] << std::endl;
-	}
-	std::cout << "Loaded extensions:" << std::endl;
-	for(unsigned int i=0;i<extensionVector.size();i++){
-		std::cout << "\t- " << extensionVector[i] << std::endl;
-	}
-	
-	vkCreateInstance(&createInfo, nullptr,&vkinstance);
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	uint32_t deviceCount = 0;
-	vkEnumeratePhysicalDevices(vkinstance, &deviceCount, nullptr);
+	vkEnumeratePhysicalDevices(engineInstance->vkinstance, &deviceCount, nullptr);
 	std::vector<VkPhysicalDevice> devices(deviceCount);
-	vkEnumeratePhysicalDevices(vkinstance, &deviceCount, devices.data());
+	vkEnumeratePhysicalDevices(engineInstance->vkinstance, &deviceCount, devices.data());
 	std::cout << "Available devices:" << std::endl;
 	std::string deviceName;
 	for (long unsigned int i=0;i<devices.size();i++) {
@@ -167,8 +83,8 @@ int main(){
 	VkQueue graphicsQueue;
 	vkGetDeviceQueue(device, graphicsFamilyID, 0, &graphicsQueue);
 	VkSurfaceKHR surface;
-	if ( glfwCreateWindowSurface(vkinstance, window, nullptr, &surface) != VK_SUCCESS){
-		std::cerr << "Cannot create window surface " << std::endl ;
+	if ( glfwCreateWindowSurface(engineInstance->vkinstance, engineInstance->window, nullptr, &surface) != VK_SUCCESS){
+		std::cerr << "Cannot create engineInstance->window surface " << std::endl ;
 		glfwTerminate();
 	}
 	VkBool32 presentSupport = false;
@@ -792,7 +708,7 @@ int main(){
 	glm::vec3 sideDirection(0,0,0);
 	std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
 	std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
-	glfwSetInputMode(window,GLFW_CURSOR,GLFW_CURSOR_HIDDEN);
+	glfwSetInputMode(engineInstance->window,GLFW_CURSOR,GLFW_CURSOR_HIDDEN);
 	bool FORWARD=false;
 	bool BACK=false;
 	bool RIGHT=false;
@@ -801,27 +717,27 @@ int main(){
 	bool DOWN=false;
 	bool SPRINT=false;
 	float speedMultiplier;
-	while(!glfwWindowShouldClose(window)){
+	while(!glfwWindowShouldClose(engineInstance->window)){
 		int timeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
 		glfwPollEvents();
 		start = std::chrono::system_clock::now();
-		FORWARD=glfwGetKey(window,GLFW_KEY_W)==GLFW_PRESS;
-		BACK=glfwGetKey(window,GLFW_KEY_S)==GLFW_PRESS;
-		LEFT=glfwGetKey(window,GLFW_KEY_A)==GLFW_PRESS;
-		RIGHT=glfwGetKey(window,GLFW_KEY_D)==GLFW_PRESS;
-		UP=glfwGetKey(window,GLFW_KEY_SPACE)==GLFW_PRESS;
-		DOWN=glfwGetKey(window,GLFW_KEY_LEFT_CONTROL)==GLFW_PRESS;
-		SPRINT=glfwGetKey(window,GLFW_KEY_LEFT_SHIFT)==GLFW_PRESS;
+		FORWARD=glfwGetKey(engineInstance->window,GLFW_KEY_W)==GLFW_PRESS;
+		BACK=glfwGetKey(engineInstance->window,GLFW_KEY_S)==GLFW_PRESS;
+		LEFT=glfwGetKey(engineInstance->window,GLFW_KEY_A)==GLFW_PRESS;
+		RIGHT=glfwGetKey(engineInstance->window,GLFW_KEY_D)==GLFW_PRESS;
+		UP=glfwGetKey(engineInstance->window,GLFW_KEY_SPACE)==GLFW_PRESS;
+		DOWN=glfwGetKey(engineInstance->window,GLFW_KEY_LEFT_CONTROL)==GLFW_PRESS;
+		SPRINT=glfwGetKey(engineInstance->window,GLFW_KEY_LEFT_SHIFT)==GLFW_PRESS;
 		speedMultiplier=0.1+SPRINT*0.4;
 		double mx;
 		double my;
 
-		glfwGetCursorPos(window,&mx,&my);
+		glfwGetCursorPos(engineInstance->window,&mx,&my);
 		eyeAngles.x+=(mx-WIDTH/2)*0.001;
 		if (not ((eyeAngles.y>=PI/2 and (my-HEIGHT/2) > 0) or (eyeAngles.y<=-PI/2 and (my-HEIGHT/2) <0))){
 			eyeAngles.y+=(my-HEIGHT/2)*0.001;
 		}
-		glfwSetCursorPos(window,WIDTH/2,HEIGHT/2);
+		glfwSetCursorPos(engineInstance->window,WIDTH/2,HEIGHT/2);
 		while (eyeAngles.x>=2*PI){
 			eyeAngles.x-=2*PI;
 		}
@@ -971,10 +887,10 @@ int main(){
 	vkFreeMemory(device,uniformBufferMemory,nullptr);
 	vkDestroyDescriptorPool(device, descPool, nullptr);
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-	vkDestroySurfaceKHR(vkinstance,surface, nullptr);
+	vkDestroySurfaceKHR(engineInstance->vkinstance,surface, nullptr);
 	vkDestroyDevice(device,nullptr);
-	vkDestroyInstance(vkinstance, NULL);
-	glfwDestroyWindow(window);
+	vkDestroyInstance(engineInstance->vkinstance, NULL);
+	glfwDestroyWindow(engineInstance->window);
 	glfwTerminate();
 
 }
