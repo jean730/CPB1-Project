@@ -17,6 +17,7 @@
 #include "client/shaderloader.h"
 #include <math.h>
 #include <chrono>
+#include <thread>
 unsigned short int WIDTH=1280;
 unsigned short int HEIGHT=720;
 bool WIREFRAME_MODE=false;
@@ -25,31 +26,6 @@ int main(){
 
 
 
-	VkDeviceQueueCreateInfo queueCreateInfo = {};
-	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	queueCreateInfo.queueFamilyIndex = engineInstance->graphicsFamily;
-	queueCreateInfo.queueCount = 1;
-	float priority = 1.0f;
-	queueCreateInfo.pQueuePriorities = &priority;
-	VkPhysicalDeviceFeatures deviceFeatures = {};
-	deviceFeatures.fillModeNonSolid=true;
-	VkDeviceCreateInfo devCreateInfo = {};
-	devCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	devCreateInfo.pQueueCreateInfos = &queueCreateInfo;
-	devCreateInfo.queueCreateInfoCount = 1;
-	devCreateInfo.pEnabledFeatures = &deviceFeatures;
-
-	std::vector<const char*> logicalExtensionVector;
-	logicalExtensionVector.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-	devCreateInfo.enabledExtensionCount = logicalExtensionVector.size();
-	devCreateInfo.ppEnabledExtensionNames = logicalExtensionVector.data();
-	VkDevice device = nullptr;
-	if (vkCreateDevice(engineInstance->physicalDevice, &devCreateInfo, nullptr, &device) != VK_SUCCESS) {
-		std::cerr << "Failed to create logical device." << std::endl ;
-		glfwTerminate();
-	}
-	VkQueue graphicsQueue;
-	vkGetDeviceQueue(device, engineInstance->graphicsFamily, 0, &graphicsQueue);
 	VkSurfaceKHR surface;
 	if ( glfwCreateWindowSurface(engineInstance->vkinstance, engineInstance->window, nullptr, &surface) != VK_SUCCESS){
 		std::cerr << "Cannot create engineInstance->window surface " << std::endl ;
@@ -112,7 +88,7 @@ int main(){
 	swapchainCreateInfo.clipped = VK_TRUE;
 	swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
 	VkSwapchainKHR swapchain;
-	if(vkCreateSwapchainKHR(device,&swapchainCreateInfo,nullptr,&swapchain) != VK_SUCCESS){
+	if(vkCreateSwapchainKHR(engineInstance->logicalDevice,&swapchainCreateInfo,nullptr,&swapchain) != VK_SUCCESS){
 		std::cerr << "Could not create swap chain." << std::endl;
 		glfwTerminate();
 	}
@@ -120,9 +96,9 @@ int main(){
 		std::cout << "Swapchain successfully created." << std::endl;
 	}
 	std::vector<VkImage> swapChainImages;
-	vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
+	vkGetSwapchainImagesKHR(engineInstance->logicalDevice, swapchain, &imageCount, nullptr);
 	swapChainImages.resize(imageCount);
-	vkGetSwapchainImagesKHR(device, swapchain, &imageCount, swapChainImages.data());
+	vkGetSwapchainImagesKHR(engineInstance->logicalDevice, swapchain, &imageCount, swapChainImages.data());
 	VkFormat swapChainImageFormat = format.format;
 	std::vector<VkImageView> ImageViews;
 	ImageViews.resize(imageCount);
@@ -141,7 +117,7 @@ int main(){
 		imageViewCreateInfo.subresourceRange.levelCount = 1;
 		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
 		imageViewCreateInfo.subresourceRange.layerCount = 1;
-		if(vkCreateImageView(device,&imageViewCreateInfo,nullptr,&ImageViews[i])!=VK_SUCCESS){
+		if(vkCreateImageView(engineInstance->logicalDevice,&imageViewCreateInfo,nullptr,&ImageViews[i])!=VK_SUCCESS){
 			std::cerr << "Could not create Image View." << i << std::endl;
 			glfwTerminate();
 		}
@@ -155,8 +131,8 @@ int main(){
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
 	depthStencil.stencilTestEnable = VK_FALSE;
 
-	auto fragmentShaderModule = loadShaderModuleFromFile(device,"frag.sprv");
-	auto vertexShaderModule = loadShaderModuleFromFile(device,"vert.sprv");
+	auto fragmentShaderModule = loadShaderModuleFromFile(engineInstance->logicalDevice,"frag.sprv");
+	auto vertexShaderModule = loadShaderModuleFromFile(engineInstance->logicalDevice,"vert.sprv");
 
 	VkPipelineShaderStageCreateInfo vertexShaderStageInfo = {};
 	vertexShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -268,7 +244,7 @@ int main(){
 		1,
 		&uniformBufferLayoutBinding
 	};
-	vkCreateDescriptorSetLayout(device, &layoutCreateInfo, nullptr, &descriptorSetLayout);
+	vkCreateDescriptorSetLayout(engineInstance->logicalDevice, &layoutCreateInfo, nullptr, &descriptorSetLayout);
 
 	VkRenderPass renderPass;
 	VkPipelineLayout pipelineLayout;
@@ -280,7 +256,7 @@ int main(){
 	pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
 
-	if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+	if (vkCreatePipelineLayout(engineInstance->logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
 	    std::cerr << "Could not create pipeline layout." << std::endl;
 	    glfwTerminate();
 	}
@@ -346,7 +322,7 @@ int main(){
 	renderPassCreateInfo.dependencyCount = 1;
 	renderPassCreateInfo.pDependencies = &dependency;
 
-	if (vkCreateRenderPass(device, &renderPassCreateInfo, nullptr, &renderPass) != VK_SUCCESS) {
+	if (vkCreateRenderPass(engineInstance->logicalDevice, &renderPassCreateInfo, nullptr, &renderPass) != VK_SUCCESS) {
 		std::cerr << "Could not create renderpass." << std::endl;
 		glfwTerminate();
 	}
@@ -371,7 +347,7 @@ int main(){
 	pipelineCreateInfo.subpass=0;
 
 	VkPipeline graphicsPipeline; // FINALLY the graphics pipeline
-	if (vkCreateGraphicsPipelines(device,VK_NULL_HANDLE,1, &pipelineCreateInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+	if (vkCreateGraphicsPipelines(engineInstance->logicalDevice,VK_NULL_HANDLE,1, &pipelineCreateInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
 		std::cerr << "Could not create the graphics pipeline." << std::endl;
 		glfwTerminate();
 	}
@@ -397,12 +373,12 @@ int main(){
 	depthImageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	VkImage depthImage;
 	VkDeviceMemory depthImageMemory;
-	if (vkCreateImage(device, &depthImageInfo, nullptr, &depthImage) == VK_SUCCESS) {
+	if (vkCreateImage(engineInstance->logicalDevice, &depthImageInfo, nullptr, &depthImage) == VK_SUCCESS) {
 		std::cout << "Depth buffer successfully created." << std::endl;
 	}
 
 	VkMemoryRequirements depthMemoryRequirements;
-	vkGetImageMemoryRequirements(device, depthImage, &depthMemoryRequirements);
+	vkGetImageMemoryRequirements(engineInstance->logicalDevice, depthImage, &depthMemoryRequirements);
 	VkPhysicalDeviceMemoryProperties depthMemoryProperties;
         vkGetPhysicalDeviceMemoryProperties(engineInstance->physicalDevice, &depthMemoryProperties);
 
@@ -419,11 +395,11 @@ int main(){
 	}
 	depthBufferAllocInfo.memoryTypeIndex = tmp; 
 
-	if (vkAllocateMemory(device, &depthBufferAllocInfo, nullptr, &depthImageMemory) != VK_SUCCESS) {
+	if (vkAllocateMemory(engineInstance->logicalDevice, &depthBufferAllocInfo, nullptr, &depthImageMemory) != VK_SUCCESS) {
 	    throw std::runtime_error("failed to allocate depthImage memory!");
 	}
 
-	vkBindImageMemory(device, depthImage, depthImageMemory, 0);
+	vkBindImageMemory(engineInstance->logicalDevice, depthImage, depthImageMemory, 0);
 
 	VkImageViewCreateInfo depthImageViewCreateInfo = {};
         depthImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -439,7 +415,7 @@ int main(){
         depthImageViewCreateInfo.subresourceRange.levelCount = 1;
         depthImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
         depthImageViewCreateInfo.subresourceRange.layerCount = 1;
-	if(vkCreateImageView(device,&depthImageViewCreateInfo,nullptr,&depthImageView)==VK_SUCCESS){
+	if(vkCreateImageView(engineInstance->logicalDevice,&depthImageViewCreateInfo,nullptr,&depthImageView)==VK_SUCCESS){
 		std::cout << "Depth Image View successfully created" << std::endl;
 	}
 	Framebuffers.resize(imageCount);
@@ -458,7 +434,7 @@ int main(){
 		framebufferCreateInfo.height = extent.height;
 		framebufferCreateInfo.layers = 1;
 		
-		if (vkCreateFramebuffer(device, &framebufferCreateInfo, nullptr, &Framebuffers[i]) != VK_SUCCESS) {
+		if (vkCreateFramebuffer(engineInstance->logicalDevice, &framebufferCreateInfo, nullptr, &Framebuffers[i]) != VK_SUCCESS) {
 			std::cerr << "Could not create framebuffer "<< i << std::endl;
 			glfwTerminate();
 		}
@@ -527,7 +503,7 @@ int main(){
 		}
 	}
 	for (Entity &entity: Entities){
-		entity.createBuffers(std::ref(device),std::ref(engineInstance->physicalDevice));
+		entity.createBuffers(std::ref(engineInstance->logicalDevice),std::ref(engineInstance->physicalDevice));
 	}
 	VkBuffer uniformBuffer;
 	VkDeviceMemory uniformBufferMemory;
@@ -537,11 +513,11 @@ int main(){
 	uniformBufferCreateInfo.size = sizeof(uniformBufferStruct);
 	uniformBufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 	uniformBufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	vkCreateBuffer(device, &uniformBufferCreateInfo, nullptr, &uniformBuffer);
+	vkCreateBuffer(engineInstance->logicalDevice, &uniformBufferCreateInfo, nullptr, &uniformBuffer);
 	VkMemoryRequirements memoryRequirements;
 	VkPhysicalDeviceMemoryProperties memoryProperties;
 	vkGetPhysicalDeviceMemoryProperties(engineInstance->physicalDevice, &memoryProperties);
-	vkGetBufferMemoryRequirements(device, uniformBuffer, &memoryRequirements);
+	vkGetBufferMemoryRequirements(engineInstance->logicalDevice, uniformBuffer, &memoryRequirements);
 	int memoryType=0;
 	for(unsigned int i=0;i<memoryProperties.memoryTypeCount;i++){
 		if(memoryRequirements.memoryTypeBits &(1<<i) && (memoryProperties.memoryTypes[i].propertyFlags &
@@ -555,9 +531,9 @@ int main(){
 	memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	memoryAllocateInfo.allocationSize = memoryRequirements.size;
 	memoryAllocateInfo.memoryTypeIndex = memoryType;
-	if(vkAllocateMemory(device,&memoryAllocateInfo,nullptr,&uniformBufferMemory) == VK_SUCCESS){
+	if(vkAllocateMemory(engineInstance->logicalDevice,&memoryAllocateInfo,nullptr,&uniformBufferMemory) == VK_SUCCESS){
 		std::cout << "Allocated Memory for uniform buffer: " << memoryRequirements.size << std::endl;
-		vkBindBufferMemory(device, uniformBuffer, uniformBufferMemory, 0);
+		vkBindBufferMemory(engineInstance->logicalDevice, uniformBuffer, uniformBufferMemory, 0);
 	}
 
 
@@ -577,7 +553,7 @@ int main(){
 
 	VkDescriptorPool descPool;
 
-	if(vkCreateDescriptorPool(device,&descPoolCreateInfo,nullptr,&descPool)  != VK_SUCCESS) {
+	if(vkCreateDescriptorPool(engineInstance->logicalDevice,&descPoolCreateInfo,nullptr,&descPool)  != VK_SUCCESS) {
                 std::cerr << "Could not create Descriptor Pool " << std::endl;
                 glfwTerminate();
         }
@@ -596,7 +572,7 @@ int main(){
 	};
 
 	std::vector<VkDescriptorSet> descSets(imageCount);
-	if(vkAllocateDescriptorSets(device,&descAllocInfo,descSets.data())  != VK_SUCCESS) {
+	if(vkAllocateDescriptorSets(engineInstance->logicalDevice,&descAllocInfo,descSets.data())  != VK_SUCCESS) {
                 std::cerr << "Could not create Descriptor Sets " << std::endl;
                 glfwTerminate();
         }
@@ -613,8 +589,8 @@ int main(){
 	VkCommandPoolCreateInfo poolCreateInfo = {};
 	poolCreateInfo.sType=VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	poolCreateInfo.queueFamilyIndex=engineInstance->graphicsFamily;
-	poolCreateInfo.flags=VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-	if (vkCreateCommandPool(device, &poolCreateInfo, nullptr, &commandPool) != VK_SUCCESS) {
+	poolCreateInfo.flags=VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	if (vkCreateCommandPool(engineInstance->logicalDevice, &poolCreateInfo, nullptr, &commandPool) != VK_SUCCESS) {
 		std::cerr << "Could not create Command Pool " << std::endl;
 		glfwTerminate();
 	}
@@ -642,9 +618,14 @@ int main(){
 	VkSemaphoreCreateInfo semaphoreInfo = {};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	VkSemaphore imageAvailableSemaphore;
-	vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphore);
+	vkCreateSemaphore(engineInstance->logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphore);
 	VkSemaphore renderFinishedSemaphore;
-	vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphore);
+	vkCreateSemaphore(engineInstance->logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphore);
+	VkFence Fence;
+	VkFenceCreateInfo fenceCreateInfo={};
+	fenceCreateInfo.sType=VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+	vkCreateFence(engineInstance->logicalDevice, &fenceCreateInfo, nullptr, &Fence);
 
 	uniformBufferStruct uniformBufferObject={};
 	uniformBufferObject.time=0;	
@@ -668,7 +649,7 @@ int main(){
 			&descBufferInfo,
 			nullptr
 		};
-		vkUpdateDescriptorSets(device, 1, &writeDescriptor, 0, nullptr);
+		vkUpdateDescriptorSets(engineInstance->logicalDevice, 1, &writeDescriptor, 0, nullptr);
 	}
 	glm::vec3 camPos(0,0,0);
 	glm::vec2 eyeAngles(0,0);
@@ -687,6 +668,9 @@ int main(){
 	float speedMultiplier;
 	while(!glfwWindowShouldClose(engineInstance->window)){
 		int timeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
+		if (timeElapsed<16){
+			std::this_thread::sleep_for((std::chrono::duration<double, std::milli>)(16-timeElapsed));
+		}
 		glfwPollEvents();
 		start = std::chrono::system_clock::now();
 		FORWARD=glfwGetKey(engineInstance->window,GLFW_KEY_W)==GLFW_PRESS;
@@ -727,30 +711,28 @@ int main(){
 		bufferAllocInfo.commandPool = commandPool;
 		bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		bufferAllocInfo.commandBufferCount = (uint32_t) commandBuffers.size();
-		vkAllocateCommandBuffers(device, &bufferAllocInfo, commandBuffers.data());
+		vkAllocateCommandBuffers(engineInstance->logicalDevice, &bufferAllocInfo, commandBuffers.data());
 		uniformBufferObject.time+=timeElapsed*0.001;
 		uniformBufferObject.viewMatrix = glm::lookAt(camPos,camPos+eyeDirection,glm::vec3(0.0f,1.0f,0.0f));
 		uniformBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), (float)extent.width/(float)extent.height, 0.1f, 1000.0f);
 		uniformBufferObject.projectionMatrix[1][1] *= -1;
+		VkRenderPassBeginInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = renderPass;
+		renderPassInfo.renderArea.offset = {0, 0};
+		renderPassInfo.renderArea.extent = extent;
+		std::array<VkClearValue, 2> clearValues = {};
+		clearValues[0].color = {0.53f, 0.81f, 0.92f, 1.0f};
+		clearValues[1].depthStencil = {1.0f, 0};
+		renderPassInfo.clearValueCount = 2;
+		renderPassInfo.pClearValues = clearValues.data();
+		VkCommandBufferBeginInfo beginInfo = {};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		for(unsigned int i=0;i<imageCount;i++){
-			VkCommandBufferBeginInfo beginInfo = {};
-			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-			beginInfo.flags = 0; // Optional
-			beginInfo.pInheritanceInfo = nullptr; // Optional
-			vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
-
-			VkRenderPassBeginInfo renderPassInfo = {};
-			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-			renderPassInfo.renderPass = renderPass;
 			renderPassInfo.framebuffer = Framebuffers[i];
-			renderPassInfo.renderArea.offset = {0, 0};
-			renderPassInfo.renderArea.extent = extent;
-			std::array<VkClearValue, 2> clearValues = {};
-			clearValues[0].color = {0.53f, 0.81f, 0.92f, 1.0f};
-			clearValues[1].depthStencil = {1.0f, 0};
-			renderPassInfo.clearValueCount = 2;
-			renderPassInfo.pClearValues = clearValues.data();
-				vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+			vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
+			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descSets[i], 0, nullptr);
 
@@ -763,9 +745,9 @@ int main(){
 
 
 				void* data;
-				vkMapMemory(device, uniformBufferMemory, 0, sizeof(uniformBufferObject), 0, &data);
+				vkMapMemory(engineInstance->logicalDevice, uniformBufferMemory, 0, sizeof(uniformBufferObject), 0, &data);
 				memcpy(data, &uniformBufferObject, sizeof(uniformBufferObject));
-				vkUnmapMemory(device, uniformBufferMemory);
+				vkUnmapMemory(engineInstance->logicalDevice, uniformBufferMemory);
 
 				VkBuffer vertexBuffers[] = {entity.vertexBuffer};
 				VkDeviceSize offsets[] = {0};
@@ -780,42 +762,46 @@ int main(){
 			}
 
 			vkCmdEndRenderPass(commandBuffers[i]);
-			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
-				std::cerr << "Render Pass Failed" << std::endl;
+			vkEndCommandBuffer(commandBuffers[i]);
+		}
+		for(int i=0;i<imageCount;i++){
+			vkWaitForFences(engineInstance->logicalDevice, 1, &Fence, VK_TRUE, UINT64_MAX);
+			vkResetFences(engineInstance->logicalDevice, 1, &Fence);
+
+			uint32_t imageIndex;
+			vkAcquireNextImageKHR(engineInstance->logicalDevice, swapchain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+			VkSubmitInfo submitInfo = {};
+			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+			VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
+			VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+			submitInfo.waitSemaphoreCount = 1;
+			submitInfo.pWaitSemaphores = waitSemaphores;
+			submitInfo.pWaitDstStageMask = waitStages;
+			submitInfo.commandBufferCount = 1;
+			submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
+			VkSemaphore signalSemaphores[] = {renderFinishedSemaphore};
+			submitInfo.signalSemaphoreCount = 1;
+			submitInfo.pSignalSemaphores = signalSemaphores;
+			if(vkQueueSubmit(engineInstance->graphicsQueue, 1, &submitInfo, Fence)!=VK_SUCCESS){
+				std::cerr << "Queue submit Failed" << std::endl;
 			}
+
+
+			VkPresentInfoKHR presentInfo = {};
+			presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+			presentInfo.waitSemaphoreCount = 1;
+			presentInfo.pWaitSemaphores = signalSemaphores;
+
+			VkSwapchainKHR swapchains[] = {swapchain};
+			presentInfo.swapchainCount = 1;
+			presentInfo.pSwapchains = swapchains;
+			presentInfo.pImageIndices = &imageIndex;
+			vkQueuePresentKHR(engineInstance->graphicsQueue, &presentInfo);
+			vkQueueWaitIdle(engineInstance->graphicsQueue);
 		}
-		uint32_t imageIndex;
-		vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
-		VkSubmitInfo submitInfo = {};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-		VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
-		VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = waitSemaphores;
-		submitInfo.pWaitDstStageMask = waitStages;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
-		VkSemaphore signalSemaphores[] = {renderFinishedSemaphore};
-		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = signalSemaphores;
-		if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE)!=VK_SUCCESS){
-			std::cerr << "Queue submit Failed" << std::endl;
-		}
-
-
-		VkPresentInfoKHR presentInfo = {};
-		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-		presentInfo.waitSemaphoreCount = 1;
-		presentInfo.pWaitSemaphores = signalSemaphores;
-
-		VkSwapchainKHR swapchains[] = {swapchain};
-		presentInfo.swapchainCount = 1;
-		presentInfo.pSwapchains = swapchains;
-		presentInfo.pImageIndices = &imageIndex;
-		vkQueuePresentKHR(graphicsQueue, &presentInfo);
-		vkQueueWaitIdle(graphicsQueue);
-
+		vkFreeCommandBuffers(engineInstance->logicalDevice,commandPool,imageCount,commandBuffers.data());
+		vkResetCommandPool(engineInstance->logicalDevice,commandPool,VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
 
 
 
@@ -827,36 +813,38 @@ int main(){
 	}
 
 
-	vkDeviceWaitIdle(device);
+	vkDeviceWaitIdle(engineInstance->logicalDevice);
 	for (Entity &entity : Entities){
-		entity.destroyBuffers(device);
+		entity.destroyBuffers(engineInstance->logicalDevice);
 	}
 	
-	vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
-	vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
+	vkDestroySemaphore(engineInstance->logicalDevice, renderFinishedSemaphore, nullptr);
+	vkDestroySemaphore(engineInstance->logicalDevice, imageAvailableSemaphore, nullptr);
+	vkDestroyFence(engineInstance->logicalDevice, Fence, nullptr);
 
-	vkFreeMemory(device,depthImageMemory,nullptr);
-	vkDestroyImage(device,depthImage,nullptr);
-	vkDestroyCommandPool(device, commandPool, nullptr);
+	vkFreeMemory(engineInstance->logicalDevice,depthImageMemory,nullptr);
+	vkDestroyImage(engineInstance->logicalDevice,depthImage,nullptr);
+	vkDestroyImageView(engineInstance->logicalDevice,depthImageView,nullptr);
+	vkDestroyCommandPool(engineInstance->logicalDevice, commandPool, nullptr);
 	for(unsigned int i=0;i<imageCount;i++){
-		vkDestroyFramebuffer(device,Framebuffers[i],nullptr);
+		vkDestroyFramebuffer(engineInstance->logicalDevice,Framebuffers[i],nullptr);
 	}
 
-	vkDestroyPipeline(device, graphicsPipeline, nullptr);
-	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-	vkDestroyRenderPass(device, renderPass, nullptr);
-	vkDestroyShaderModule(device, fragmentShaderModule, nullptr);
-	vkDestroyShaderModule(device, vertexShaderModule, nullptr);
+	vkDestroyPipeline(engineInstance->logicalDevice, graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(engineInstance->logicalDevice, pipelineLayout, nullptr);
+	vkDestroyRenderPass(engineInstance->logicalDevice, renderPass, nullptr);
+	vkDestroyShaderModule(engineInstance->logicalDevice, fragmentShaderModule, nullptr);
+	vkDestroyShaderModule(engineInstance->logicalDevice, vertexShaderModule, nullptr);
 	for(unsigned int i=0;i<imageCount;i++){
-		vkDestroyImageView(device,ImageViews[i],nullptr);
+		vkDestroyImageView(engineInstance->logicalDevice,ImageViews[i],nullptr);
 	}
-	vkDestroySwapchainKHR(device, swapchain, nullptr);
-	vkDestroyBuffer(device, uniformBuffer, nullptr);
-	vkFreeMemory(device,uniformBufferMemory,nullptr);
-	vkDestroyDescriptorPool(device, descPool, nullptr);
-	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+	vkDestroySwapchainKHR(engineInstance->logicalDevice, swapchain, nullptr);
+	vkDestroyBuffer(engineInstance->logicalDevice, uniformBuffer, nullptr);
+	vkFreeMemory(engineInstance->logicalDevice,uniformBufferMemory,nullptr);
+	vkDestroyDescriptorPool(engineInstance->logicalDevice, descPool, nullptr);
+	vkDestroyDescriptorSetLayout(engineInstance->logicalDevice, descriptorSetLayout, nullptr);
 	vkDestroySurfaceKHR(engineInstance->vkinstance,surface, nullptr);
-	vkDestroyDevice(device,nullptr);
+	vkDestroyDevice(engineInstance->logicalDevice,nullptr);
 	vkDestroyInstance(engineInstance->vkinstance, NULL);
 	glfwDestroyWindow(engineInstance->window);
 	glfwTerminate();

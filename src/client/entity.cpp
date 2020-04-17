@@ -37,7 +37,7 @@ void Entity::createBuffers(VkDevice &device,VkPhysicalDevice &pDevice){
 	memoryAllocateInfo.allocationSize = memoryRequirements.size;
 	memoryAllocateInfo.memoryTypeIndex = memoryType;
 	if(vkAllocateMemory(device,&memoryAllocateInfo,nullptr,&this->vertexBufferMemory) == VK_SUCCESS){
-		std::cout << "Allocated Vertex Memory for entity: " << memoryRequirements.size << std::endl;
+//		std::cout << "Allocated Vertex Memory for entity: " << memoryRequirements.size << std::endl;
 		vkBindBufferMemory(device, this->vertexBuffer, this->vertexBufferMemory, 0);
 	}
 	void* vertexData;
@@ -72,7 +72,7 @@ void Entity::createBuffers(VkDevice &device,VkPhysicalDevice &pDevice){
 		indexMemoryAllocateInfo.allocationSize = indexMemoryRequirements.size;
 		indexMemoryAllocateInfo.memoryTypeIndex = indexMemoryType;
 		if(vkAllocateMemory(device,&indexMemoryAllocateInfo,nullptr,&this->indexBufferMemory) == VK_SUCCESS){
-			std::cout << "Allocated Index Memory for entity: " << indexMemoryRequirements.size << std::endl;
+//			std::cout << "Allocated Index Memory for entity: " << indexMemoryRequirements.size << std::endl;
 			vkBindBufferMemory(device, this->indexBuffer, this->indexBufferMemory, 0);
 		}
 		void* indexData;

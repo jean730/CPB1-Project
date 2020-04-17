@@ -111,4 +111,41 @@ void Engine::initVulkan(){
 
 	}
 
+	//Initialize Logical Device
+	{
+		VkDeviceQueueCreateInfo queueCreateInfo = {};
+		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queueCreateInfo.queueFamilyIndex = this->graphicsFamily;
+		queueCreateInfo.queueCount = 1;
+		float queuePrio = 1.0f;
+		queueCreateInfo.pQueuePriorities = &queuePrio;
+
+		VkPhysicalDeviceFeatures deviceFeatures = {};
+		deviceFeatures.fillModeNonSolid=true;
+
+		VkDeviceCreateInfo devCreateInfo = {};
+		devCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		devCreateInfo.pQueueCreateInfos = &queueCreateInfo;
+		devCreateInfo.queueCreateInfoCount = 1;
+		devCreateInfo.pEnabledFeatures = &deviceFeatures;
+
+		std::vector<const char*> logicalExtensionVector;
+		logicalExtensionVector.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+		devCreateInfo.enabledExtensionCount = logicalExtensionVector.size();
+		devCreateInfo.ppEnabledExtensionNames = logicalExtensionVector.data();
+
+		if (vkCreateDevice(this->physicalDevice, &devCreateInfo, nullptr, &this->logicalDevice) != VK_SUCCESS) {
+			std::cerr << "Failed to create logical device." << std::endl ;
+			glfwTerminate();
+			exit(-1);
+		}
+	}
+
+	//Get graphics Queue
+	{
+		vkGetDeviceQueue(this->logicalDevice, this->graphicsFamily, 0, &this->graphicsQueue);
+	}
+
+
+
 }

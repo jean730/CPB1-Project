@@ -19,10 +19,14 @@ public:
 	VkApplicationInfo applicationInfo = {};
 	
 	//Devices
-	VkPhysicalDevice physicalDevice;
+	VkPhysicalDevice physicalDevice = NULL;
+	VkDevice logicalDevice = NULL;
 
 	//Queue families IDs
 	uint32_t graphicsFamily;
+
+	//Queues
+	VkQueue graphicsQueue;
 
 };
 #endif
