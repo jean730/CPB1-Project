@@ -1,11 +1,10 @@
 #include "client/engine.h"
 #include "client/shaderloader.h"
-Engine::Engine(std::string name,uint32_t width,uint32_t height,int max_framerate){
+Engine::Engine(std::string name,uint32_t width,uint32_t height){
 	this->WIDTH=width;
 	this->HEIGHT=height;
 	this->extent = {width,height};
 	this->ENGINE_NAME=name;
-	this->FRAMETIME = 1000/max_framerate;
 }
 
 Engine::~Engine(){
@@ -852,18 +851,23 @@ void Engine::update(int timeElapsed){
 
 	glfwGetCursorPos(this->window,&mx,&my);
 	eyeAngles.x+=(mx-this->extent.width/2)*0.001;
-	if (not ((this->eyeAngles.y>=PI/2 and (my-this->extent.height/2) > 0) or (this->eyeAngles.y<=-PI/2 and (my-this->extent.height/2) <0))){
-		this->eyeAngles.y+=(my-this->extent.height/2)*0.001;
+	this->eyeAngles.y+=(my-this->extent.height/2)*0.001;
+	if (this->eyeAngles.y>PI/2-0.001){
+		this->eyeAngles.y=PI/2-0.001;
 	}
+	if (this->eyeAngles.y<-PI/2+0.001){
+		this->eyeAngles.y=-PI/2+0.001;
+	}
+
 	glfwSetCursorPos(this->window,this->extent.width/2,this->extent.height/2);
-	while (this->eyeAngles.x>=2*PI){
+	if (this->eyeAngles.x>=2*PI){
 		this->eyeAngles.x-=2*PI;
 	}
-	while (this->eyeAngles.x<=0){
+	if (this->eyeAngles.x<=0){
 		this->eyeAngles.x+=2*PI;
 	}
 
-	eyeDirection = glm::vec3(cos(eyeAngles.x),-sin(eyeAngles.y),sin(eyeAngles.x));
+	eyeDirection = glm::vec3(cos(eyeAngles.x)*cos(eyeAngles.y),-sin(eyeAngles.y),sin(eyeAngles.x)*cos(eyeAngles.y));
 	sideDirection = glm::vec3(cos(eyeAngles.x+PI/2),0,sin(eyeAngles.x+PI/2));
 	float forward_speed=(FORWARD-BACK)*speedMultiplier;
 	float side_speed=(RIGHT-LEFT)*speedMultiplier;

@@ -23,7 +23,7 @@
 class ShaderPair;
 class Engine {
 public:
-	Engine(std::string name,uint32_t width,uint32_t height,int max_framerate);
+	Engine(std::string name,uint32_t width,uint32_t height);
 	~Engine();
 	void initVulkan();
 
@@ -38,7 +38,6 @@ public:
 	//Engine parameters
 	int WIDTH;
 	int HEIGHT;
-	int FRAMETIME;
 	std::string ENGINE_NAME;
 	bool ENABLE_WIREFRAME = false;
 	bool ENABLE_VALIDATION_LAYERS = false;
