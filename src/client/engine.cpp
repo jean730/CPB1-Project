@@ -225,8 +225,12 @@ void Engine::initVulkan(){
 			presentModes.resize(presentModeCount);
 			vkGetPhysicalDeviceSurfacePresentModesKHR(this->physicalDevice, surface, &presentModeCount, presentModes.data());
 		}
+		std::cout << "There are " << formatCount << " Formats" << std::endl;
 
 		this->format = formats[0];
+		if(formats[1].format == VK_FORMAT_B8G8R8A8_SRGB and formats[1].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR){
+			this->format = formats[1];
+		}
 		VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
 		for(unsigned int i=0;i<presentModeCount;i++){
 			if(presentModes[i]==VK_PRESENT_MODE_MAILBOX_KHR){
@@ -234,11 +238,10 @@ void Engine::initVulkan(){
 				std::cout << "Surface supports triple buffering." << std::endl;
 			}
 		}
-		this->imageCount=capabilities.minImageCount+1;
-		if(capabilities.minImageCount == capabilities.maxImageCount){
-			this->imageCount-=1;
+		this->imageCount=capabilities.minImageCount;
+		while(imageCount < capabilities.maxImageCount && imageCount<3){
+			this->imageCount+=1;
 		}
-
 		VkSwapchainCreateInfoKHR swapChainCreateInfo = {};
 		swapChainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 		swapChainCreateInfo.surface = this->surface;
@@ -793,41 +796,39 @@ void Engine::draw(){
 		vkCmdEndRenderPass(this->commandBuffers[i]);
 		vkEndCommandBuffer(this->commandBuffers[i]);
 	}
-	for(unsigned int i=0;i<this->imageCount;i++){
-		vkWaitForFences(this->logicalDevice, 1, &this->Fence, VK_TRUE, UINT64_MAX);
-		vkResetFences(this->logicalDevice, 1, &this->Fence);
+	vkWaitForFences(this->logicalDevice, 1, &this->Fence, VK_TRUE, UINT64_MAX);
+	vkResetFences(this->logicalDevice, 1, &this->Fence);
 
-		uint32_t imageIndex;
-		vkAcquireNextImageKHR(this->logicalDevice, this->swapChain, UINT64_MAX, this->imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
-		VkSubmitInfo submitInfo = {};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	uint32_t imageIndex;
+	vkAcquireNextImageKHR(this->logicalDevice, this->swapChain, UINT64_MAX, this->imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-		VkSemaphore waitSemaphores[] = {this->imageAvailableSemaphore};
-		VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = waitSemaphores;
-		submitInfo.pWaitDstStageMask = waitStages;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &this->commandBuffers[imageIndex];
-		VkSemaphore signalSemaphores[] = {this->renderFinishedSemaphore};
-		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = signalSemaphores;
-		if(vkQueueSubmit(this->graphicsQueue, 1, &submitInfo, this->Fence)!=VK_SUCCESS){
-			std::cerr << "Queue submit Failed" << std::endl;
-		}
-
-
-		VkPresentInfoKHR presentInfo = {};
-		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-		presentInfo.waitSemaphoreCount = 1;
-		presentInfo.pWaitSemaphores = signalSemaphores;
-
-		VkSwapchainKHR swapchains[] = {this->swapChain};
-		presentInfo.swapchainCount = 1;
-		presentInfo.pSwapchains = swapchains;
-		presentInfo.pImageIndices = &imageIndex;
-		vkQueuePresentKHR(this->graphicsQueue, &presentInfo);
+	VkSemaphore waitSemaphores[] = {this->imageAvailableSemaphore};
+	VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = waitSemaphores;
+	submitInfo.pWaitDstStageMask = waitStages;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &this->commandBuffers[imageIndex];
+	VkSemaphore signalSemaphores[] = {this->renderFinishedSemaphore};
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = signalSemaphores;
+	if(vkQueueSubmit(this->graphicsQueue, 1, &submitInfo, this->Fence)!=VK_SUCCESS){
+		std::cerr << "Queue submit Failed" << std::endl;
 	}
+
+
+	VkPresentInfoKHR presentInfo = {};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = signalSemaphores;
+
+	VkSwapchainKHR swapchains[] = {this->swapChain};
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = swapchains;
+	presentInfo.pImageIndices = &imageIndex;
+	vkQueuePresentKHR(this->graphicsQueue, &presentInfo);
 	vkQueueWaitIdle(this->graphicsQueue);
 	vkFreeCommandBuffers(this->logicalDevice,this->commandPool,this->imageCount,this->commandBuffers.data());
 	vkResetCommandPool(this->logicalDevice,this->commandPool,VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
@@ -845,7 +846,7 @@ void Engine::update(int timeElapsed){
 	this->DOWN=glfwGetKey(this->window,GLFW_KEY_LEFT_CONTROL)==GLFW_PRESS;
 	this->SPRINT=glfwGetKey(this->window,GLFW_KEY_LEFT_SHIFT)==GLFW_PRESS;
 	float speedMultiplier;
-	speedMultiplier=(0.1+SPRINT*0.4)*timeElapsed/10;
+	speedMultiplier=(0.1+SPRINT*0.9)*timeElapsed/10;
 	double mx;
 	double my;
 
@@ -878,16 +879,18 @@ void Engine::mainLoop(){
 	std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
 	std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
 	glfwSetInputMode(this->window,GLFW_CURSOR,GLFW_CURSOR_HIDDEN);
+	uint16_t counter=0;
 	while(!glfwWindowShouldClose(this->window)){
+
 		int timeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
-		start = std::chrono::system_clock::now();
-		if (timeElapsed<this->FRAMETIME){
-			std::this_thread::sleep_for((std::chrono::duration<double, std::milli>)(this->FRAMETIME-timeElapsed));
+		counter=(counter+1)%100;
+		if(counter==0){
+			std::cout << "FPS: " << 1000/timeElapsed << std::endl;
 		}
+
+		start = std::chrono::system_clock::now();
 		this->update(timeElapsed);
-
 		this->draw();
-
 		end = std::chrono::system_clock::now();
 	}
 }
