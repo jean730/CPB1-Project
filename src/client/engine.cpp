@@ -9,42 +9,43 @@ Engine::Engine(std::string name,uint32_t width,uint32_t height,int max_framerate
 }
 
 Engine::~Engine(){
+	//Destroy vulkan objects + free buffers
 	vkDeviceWaitIdle(this->logicalDevice);
-        for (Entity &entity : this->Entities){
-                entity.destroyBuffers(this->logicalDevice);
-        }
+	for (Entity &entity : this->Entities){
+		entity.destroyBuffers(this->logicalDevice);
+	}
 
-        vkDestroySemaphore(this->logicalDevice, this->renderFinishedSemaphore, nullptr);
-        vkDestroySemaphore(this->logicalDevice, this->imageAvailableSemaphore, nullptr);
-        vkDestroyFence(this->logicalDevice, this->Fence, nullptr);
+	vkDestroySemaphore(this->logicalDevice, this->renderFinishedSemaphore, nullptr);
+	vkDestroySemaphore(this->logicalDevice, this->imageAvailableSemaphore, nullptr);
+	vkDestroyFence(this->logicalDevice, this->Fence, nullptr);
 
-        vkFreeMemory(this->logicalDevice,this->depthImageMemory,nullptr);
-        vkDestroyImage(this->logicalDevice,this->depthImage,nullptr);
-        vkDestroyImageView(this->logicalDevice,this->depthImageView,nullptr);
-        vkDestroyCommandPool(this->logicalDevice, this->commandPool, nullptr);
-        for(unsigned int i=0;i<this->imageCount;i++){
-                vkDestroyFramebuffer(this->logicalDevice,this->Framebuffers[i],nullptr);
-        }
+	vkFreeMemory(this->logicalDevice,this->depthImageMemory,nullptr);
+	vkDestroyImage(this->logicalDevice,this->depthImage,nullptr);
+	vkDestroyImageView(this->logicalDevice,this->depthImageView,nullptr);
+	vkDestroyCommandPool(this->logicalDevice, this->commandPool, nullptr);
+	for(unsigned int i=0;i<this->imageCount;i++){
+		vkDestroyFramebuffer(this->logicalDevice,this->Framebuffers[i],nullptr);
+	}
 
-        vkDestroyPipeline(this->logicalDevice, this->graphicsPipeline, nullptr);
-        vkDestroyPipelineLayout(this->logicalDevice, this->pipelineLayout, nullptr);
-        vkDestroyRenderPass(this->logicalDevice, this->renderPass, nullptr);
-        vkDestroyShaderModule(this->logicalDevice, this->shaderPair->fragmentShader, nullptr);
-        vkDestroyShaderModule(this->logicalDevice, this->shaderPair->vertexShader, nullptr);
-        for(unsigned int i=0;i<this->imageCount;i++){
-                vkDestroyImageView(this->logicalDevice,this->imageViews[i],nullptr);
-        }
-        vkDestroySwapchainKHR(this->logicalDevice, this->swapChain, nullptr);
-        vkDestroyBuffer(this->logicalDevice, this->uniformBuffer, nullptr);
-        vkFreeMemory(this->logicalDevice,this->uniformBufferMemory,nullptr);
-        vkDestroyDescriptorPool(this->logicalDevice, this->descPool, nullptr);
-        vkDestroyDescriptorSetLayout(this->logicalDevice, this->descriptorSetLayout, nullptr);
-        vkDestroySurfaceKHR(this->vkinstance,this->surface, nullptr);
-        vkDestroyDevice(this->logicalDevice,nullptr);
-        vkDestroyInstance(this->vkinstance, NULL);
-        glfwDestroyWindow(this->window);
-        glfwTerminate();
-        delete this->shaderPair;
+	vkDestroyPipeline(this->logicalDevice, this->graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(this->logicalDevice, this->pipelineLayout, nullptr);
+	vkDestroyRenderPass(this->logicalDevice, this->renderPass, nullptr);
+	vkDestroyShaderModule(this->logicalDevice, this->shaderPair->fragmentShader, nullptr);
+	vkDestroyShaderModule(this->logicalDevice, this->shaderPair->vertexShader, nullptr);
+	for(unsigned int i=0;i<this->imageCount;i++){
+		vkDestroyImageView(this->logicalDevice,this->imageViews[i],nullptr);
+	}
+	vkDestroySwapchainKHR(this->logicalDevice, this->swapChain, nullptr);
+	vkDestroyBuffer(this->logicalDevice, this->uniformBuffer, nullptr);
+	vkFreeMemory(this->logicalDevice,this->uniformBufferMemory,nullptr);
+	vkDestroyDescriptorPool(this->logicalDevice, this->descPool, nullptr);
+	vkDestroyDescriptorSetLayout(this->logicalDevice, this->descriptorSetLayout, nullptr);
+	vkDestroySurfaceKHR(this->vkinstance,this->surface, nullptr);
+	vkDestroyDevice(this->logicalDevice,nullptr);
+	vkDestroyInstance(this->vkinstance, NULL);
+	glfwDestroyWindow(this->window);
+	glfwTerminate();
+	delete this->shaderPair;
 }
 
 void Engine::initVulkan(){
@@ -53,16 +54,17 @@ void Engine::initVulkan(){
 
 	//Check for Vulkan support
 	if(glfwVulkanSupported() == GLFW_FALSE){
-                std::cerr << "Vulkan Not Supported !" << std::endl;
-                glfwTerminate();
+		std::cerr << "Vulkan Not Supported !" << std::endl;
+		glfwTerminate();
 		exit(-1);
-        }
+	}
 
 	//Create window
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
-        this->window = glfwCreateWindow(WIDTH, HEIGHT, this->ENGINE_NAME.c_str(), NULL,NULL);
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
+	this->window = glfwCreateWindow(WIDTH, HEIGHT, this->ENGINE_NAME.c_str(), NULL,NULL);
+	glfwSetInputMode(this->window,GLFW_CURSOR,GLFW_CURSOR_HIDDEN);
 
 	//Initialize a vulkan instance:
 	{
@@ -75,17 +77,17 @@ void Engine::initVulkan(){
 
 		VkInstanceCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	        createInfo.pApplicationInfo = &this->applicationInfo;
+		createInfo.pApplicationInfo = &this->applicationInfo;
 
 		//Load Extensions
 		unsigned int count=0;
-	        const char** exts = glfwGetRequiredInstanceExtensions(&count);
-        	std::vector<const char*> extensionVector;
-	        for(unsigned int i=0;i<count;i++){
-        	        extensionVector.push_back(exts[i]);
-	        }
-        	extensionVector.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-	        createInfo.enabledExtensionCount = count;
+		const char** exts = glfwGetRequiredInstanceExtensions(&count);
+		std::vector<const char*> extensionVector;
+		for(unsigned int i=0;i<count;i++){
+			extensionVector.push_back(exts[i]);
+		}
+		extensionVector.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		createInfo.enabledExtensionCount = count;
 		createInfo.ppEnabledExtensionNames = extensionVector.data();
 		uint32_t layerCount;
 		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
@@ -720,15 +722,172 @@ void Engine::initVulkan(){
 		}
 	}
 
+	this->uniformBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), (float)this->extent.width/(float)this->extent.height, 0.1f, 1000.0f);
+	this->uniformBufferObject.projectionMatrix[1][1] *= -1;
+
 
 }
 
 void Engine::initTerrain(int size){
 	for(int16_t x=-size;x<size;x++){
-                for(int16_t y=-size;y<size;y++){
-                        this->Entities.push_back(createTerrain(4,1,x,y,20.0f,0.008,2));
+		for(int16_t y=-size;y<size;y++){
+			this->Entities.push_back(createTerrain(4,1,x,y,20.0f,0.008,2));
 			this->Entities[Entities.size()-1].createBuffers(this->logicalDevice,this->physicalDevice);
-                }
-        }
+		}
+	}
 
+}
+
+void Engine::draw(){
+	VkCommandBufferAllocateInfo bufferAllocInfo = {};
+	bufferAllocInfo.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	bufferAllocInfo.commandPool = this->commandPool;
+	bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	bufferAllocInfo.commandBufferCount = (uint32_t) this->commandBuffers.size();
+	vkAllocateCommandBuffers(this->logicalDevice, &bufferAllocInfo, this->commandBuffers.data());
+	VkRenderPassBeginInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = this->renderPass;
+	renderPassInfo.renderArea.offset = {0, 0};
+	renderPassInfo.renderArea.extent = this->extent;
+	std::array<VkClearValue, 2> clearValues = {};
+	clearValues[0].color = {0.53f, 0.81f, 0.92f, 1.0f};
+	clearValues[1].depthStencil = {1.0f, 0};
+	renderPassInfo.clearValueCount = 2;
+	renderPassInfo.pClearValues = clearValues.data();
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	for(unsigned int i=0;i<this->imageCount;i++){
+		renderPassInfo.framebuffer = this->Framebuffers[i];
+
+		vkBeginCommandBuffer(this->commandBuffers[i], &beginInfo);
+		vkCmdBeginRenderPass(this->commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBindPipeline(this->commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, this->graphicsPipeline);
+		vkCmdBindDescriptorSets(this->commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 0, 1, &this->descSets[i], 0, nullptr);
+
+		for (Entity &entity: this->Entities){
+			this->uniformBufferObject.modelMatrix = glm::mat4(1.0f);
+			this->uniformBufferObject.modelMatrix = glm::translate(this->uniformBufferObject.modelMatrix, entity.Position);
+			this->uniformBufferObject.modelMatrix = glm::rotate(this->uniformBufferObject.modelMatrix,entity.Angle.y,glm::vec3(0.0f,1.0f,0.0f));
+			this->uniformBufferObject.modelMatrix = glm::rotate(this->uniformBufferObject.modelMatrix,entity.Angle.x,glm::vec3(1.0f,0.0f,0.0f));
+			this->uniformBufferObject.modelMatrix = glm::rotate(this->uniformBufferObject.modelMatrix,entity.Angle.z,glm::vec3(0.0f,0.0f,1.0f));
+
+
+			void* data;
+			vkMapMemory(this->logicalDevice, this->uniformBufferMemory, 0, sizeof(this->uniformBufferObject), 0, &data);
+			memcpy(data, &this->uniformBufferObject, sizeof(this->uniformBufferObject));
+			vkUnmapMemory(this->logicalDevice, this->uniformBufferMemory);
+
+			VkBuffer vertexBuffers[] = {entity.vertexBuffer};
+			VkDeviceSize offsets[] = {0};
+			vkCmdBindVertexBuffers(this->commandBuffers[i], 0, 1, vertexBuffers, offsets);
+			if(entity.hasIndexBuffer){
+				vkCmdBindIndexBuffer(this->commandBuffers[i], entity.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+				vkCmdDrawIndexed(this->commandBuffers[i], static_cast<uint32_t>(entity.Indices.size()), 1, 0, 0, 0);
+			}
+			else{
+				vkCmdDraw(this->commandBuffers[i], static_cast<uint32_t>(entity.Vertices.size()), 1, 0, 0);
+			}
+		}
+
+		vkCmdEndRenderPass(this->commandBuffers[i]);
+		vkEndCommandBuffer(this->commandBuffers[i]);
+	}
+	for(unsigned int i=0;i<this->imageCount;i++){
+		vkWaitForFences(this->logicalDevice, 1, &this->Fence, VK_TRUE, UINT64_MAX);
+		vkResetFences(this->logicalDevice, 1, &this->Fence);
+
+		uint32_t imageIndex;
+		vkAcquireNextImageKHR(this->logicalDevice, this->swapChain, UINT64_MAX, this->imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+		VkSubmitInfo submitInfo = {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+		VkSemaphore waitSemaphores[] = {this->imageAvailableSemaphore};
+		VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+		submitInfo.waitSemaphoreCount = 1;
+		submitInfo.pWaitSemaphores = waitSemaphores;
+		submitInfo.pWaitDstStageMask = waitStages;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &this->commandBuffers[imageIndex];
+		VkSemaphore signalSemaphores[] = {this->renderFinishedSemaphore};
+		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores = signalSemaphores;
+		if(vkQueueSubmit(this->graphicsQueue, 1, &submitInfo, this->Fence)!=VK_SUCCESS){
+			std::cerr << "Queue submit Failed" << std::endl;
+		}
+
+
+		VkPresentInfoKHR presentInfo = {};
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		presentInfo.waitSemaphoreCount = 1;
+		presentInfo.pWaitSemaphores = signalSemaphores;
+
+		VkSwapchainKHR swapchains[] = {this->swapChain};
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = swapchains;
+		presentInfo.pImageIndices = &imageIndex;
+		vkQueuePresentKHR(this->graphicsQueue, &presentInfo);
+	}
+	vkQueueWaitIdle(this->graphicsQueue);
+	vkFreeCommandBuffers(this->logicalDevice,this->commandPool,this->imageCount,this->commandBuffers.data());
+	vkResetCommandPool(this->logicalDevice,this->commandPool,VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
+}
+
+void Engine::update(int timeElapsed){
+	glfwPollEvents();
+	glm::vec3 eyeDirection(0,0,0);
+	glm::vec3 sideDirection(0,0,0);
+	this->FORWARD=glfwGetKey(this->window,GLFW_KEY_W)==GLFW_PRESS;
+	this->BACK=glfwGetKey(this->window,GLFW_KEY_S)==GLFW_PRESS;
+	this->LEFT=glfwGetKey(this->window,GLFW_KEY_A)==GLFW_PRESS;
+	this->RIGHT=glfwGetKey(this->window,GLFW_KEY_D)==GLFW_PRESS;
+	this->UP=glfwGetKey(this->window,GLFW_KEY_SPACE)==GLFW_PRESS;
+	this->DOWN=glfwGetKey(this->window,GLFW_KEY_LEFT_CONTROL)==GLFW_PRESS;
+	this->SPRINT=glfwGetKey(this->window,GLFW_KEY_LEFT_SHIFT)==GLFW_PRESS;
+	float speedMultiplier;
+	speedMultiplier=(0.1+SPRINT*0.4)*timeElapsed/10;
+	double mx;
+	double my;
+
+	glfwGetCursorPos(this->window,&mx,&my);
+	eyeAngles.x+=(mx-this->extent.width/2)*0.001;
+	if (not ((this->eyeAngles.y>=PI/2 and (my-this->extent.height/2) > 0) or (this->eyeAngles.y<=-PI/2 and (my-this->extent.height/2) <0))){
+		this->eyeAngles.y+=(my-this->extent.height/2)*0.001;
+	}
+	glfwSetCursorPos(this->window,this->extent.width/2,this->extent.height/2);
+	while (this->eyeAngles.x>=2*PI){
+		this->eyeAngles.x-=2*PI;
+	}
+	while (this->eyeAngles.x<=0){
+		this->eyeAngles.x+=2*PI;
+	}
+
+	eyeDirection = glm::vec3(cos(eyeAngles.x),-sin(eyeAngles.y),sin(eyeAngles.x));
+	sideDirection = glm::vec3(cos(eyeAngles.x+PI/2),0,sin(eyeAngles.x+PI/2));
+	float forward_speed=(FORWARD-BACK)*speedMultiplier;
+	float side_speed=(RIGHT-LEFT)*speedMultiplier;
+	float height_speed=(UP-DOWN)*speedMultiplier;
+	this->camPos+=glm::vec3((float)eyeDirection.x*forward_speed,0,eyeDirection.z*forward_speed);
+	this->camPos+=glm::vec3((float)sideDirection.x*side_speed,0,sideDirection.z*side_speed);
+	this->camPos+=glm::vec3(0,height_speed,0);
+	this->uniformBufferObject.time+=timeElapsed*0.001;
+	this->uniformBufferObject.viewMatrix = glm::lookAt(this->camPos,this->camPos+eyeDirection,glm::vec3(0.0f,1.0f,0.0f));
+}
+
+void Engine::mainLoop(){
+	std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+	glfwSetInputMode(this->window,GLFW_CURSOR,GLFW_CURSOR_HIDDEN);
+	while(!glfwWindowShouldClose(this->window)){
+		int timeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
+		start = std::chrono::system_clock::now();
+		if (timeElapsed<this->FRAMETIME){
+			std::this_thread::sleep_for((std::chrono::duration<double, std::milli>)(this->FRAMETIME-timeElapsed));
+		}
+		this->update(timeElapsed);
+
+		this->draw();
+
+		end = std::chrono::system_clock::now();
+	}
 }

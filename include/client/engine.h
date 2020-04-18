@@ -9,6 +9,17 @@
 #include "client/entity.h"
 #include "client/uniform.h"
 #include "client/terrain.h"
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#define PI 3.14159265
+#include <math.h>
+#include <chrono>
+#include <thread>
+
 class ShaderPair;
 class Engine {
 public:
@@ -17,6 +28,9 @@ public:
 	void initVulkan();
 
 	GLFWwindow *window;
+	void draw();
+	void update(int timeElapsed);
+	void mainLoop();
 
 	std::vector<Entity> Entities;
 	void initTerrain(int size);
@@ -28,6 +42,17 @@ public:
 	std::string ENGINE_NAME;
 	bool ENABLE_WIREFRAME = false;
 	bool ENABLE_VALIDATION_LAYERS = false;
+
+	//Engine Variables
+	glm::vec3 camPos = glm::vec3(0,0,0);
+	glm::vec2 eyeAngles = glm::vec2(0,0);
+	bool FORWARD=false;
+	bool BACK=false;
+	bool RIGHT=false;
+	bool LEFT=false;
+	bool UP=false;
+	bool DOWN=false;
+	bool SPRINT=false;
 
 	VkExtent2D extent;
 
@@ -65,7 +90,7 @@ public:
 	VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
 	VkPipelineDepthStencilStateCreateInfo depthStencil = {};
 	VkDescriptorSetLayout descriptorSetLayout;
-        VkPipelineLayout pipelineLayout;
+	VkPipelineLayout pipelineLayout;
 	VkPipeline graphicsPipeline;
 	VkAttachmentDescription depthAttachment = {};
 	VkAttachmentReference depthAttachmentRef = {};
@@ -79,11 +104,11 @@ public:
 	std::vector<VkFramebuffer> Framebuffers;
 	VkImageView depthImageView;
 	VkImage depthImage;
-        VkDeviceMemory depthImageMemory;
+	VkDeviceMemory depthImageMemory;
 
 	//Uniform Buffer
 	VkBuffer uniformBuffer;
-        VkDeviceMemory uniformBufferMemory;
+	VkDeviceMemory uniformBufferMemory;
 	uniformBufferStruct uniformBufferObject={};
 
 	//Descriptors
