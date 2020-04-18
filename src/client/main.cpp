@@ -19,7 +19,7 @@
 #include <chrono>
 #include <thread>
 int main(){
-	Engine *engineInstance = new Engine("Test Engine",1280,720);
+	Engine *engineInstance = new Engine("Test Engine",1280,720,90);
 	engineInstance->ENABLE_VALIDATION_LAYERS=true;
 	engineInstance->initVulkan();
 	engineInstance->initTerrain(6);
@@ -42,8 +42,8 @@ int main(){
 	while(!glfwWindowShouldClose(engineInstance->window)){
 		int timeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
 		start = std::chrono::system_clock::now();
-		if (timeElapsed<10){
-			std::this_thread::sleep_for((std::chrono::duration<double, std::milli>)(10-timeElapsed));
+		if (timeElapsed<engineInstance->FRAMETIME){
+			std::this_thread::sleep_for((std::chrono::duration<double, std::milli>)(engineInstance->FRAMETIME-timeElapsed));
 		}
 		glfwPollEvents();
 		FORWARD=glfwGetKey(engineInstance->window,GLFW_KEY_W)==GLFW_PRESS;

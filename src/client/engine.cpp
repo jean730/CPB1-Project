@@ -1,10 +1,11 @@
 #include "client/engine.h"
 #include "client/shaderloader.h"
-Engine::Engine(std::string name,uint32_t width,uint32_t height){
+Engine::Engine(std::string name,uint32_t width,uint32_t height,int max_framerate){
 	this->WIDTH=width;
 	this->HEIGHT=height;
 	this->extent = {width,height};
 	this->ENGINE_NAME=name;
+	this->FRAMETIME = 1000/max_framerate;
 }
 
 Engine::~Engine(){
