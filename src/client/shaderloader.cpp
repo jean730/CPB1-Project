@@ -1,4 +1,5 @@
 #include "client/shaderloader.h"
+#include "client/engine.h"
 VkShaderModule loadShaderModuleFromFile(VkDevice device,std::string filename){
         std::ifstream file(filename,std::ios::ate | std::ios::binary);
         unsigned int filesize = file.tellg();
