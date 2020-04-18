@@ -21,36 +21,10 @@
 bool WIREFRAME_MODE=false;
 int main(){
 	Engine *engineInstance = new Engine("Test Engine",1280,720);
-	engineInstance->initTerrain(5);
+	engineInstance->PREFER_TRIPLE_BUFFERING=false;
+	engineInstance->initVulkan();
+	engineInstance->initTerrain(6);
 
-	std::vector<VkImage> swapChainImages;
-	vkGetSwapchainImagesKHR(engineInstance->logicalDevice, engineInstance->swapchain, &engineInstance->imageCount, nullptr);
-	swapChainImages.resize(engineInstance->imageCount);
-	vkGetSwapchainImagesKHR(engineInstance->logicalDevice, engineInstance->swapchain, &engineInstance->imageCount, swapChainImages.data());
-	VkFormat swapChainImageFormat = engineInstance->format.format;
-	std::vector<VkImageView> ImageViews;
-	ImageViews.resize(engineInstance->imageCount);
-	for(unsigned int i=0;i<engineInstance->imageCount;i++){
-		VkImageViewCreateInfo imageViewCreateInfo = {};
-		imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		imageViewCreateInfo.image = swapChainImages[i];
-		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		imageViewCreateInfo.format = swapChainImageFormat;
-		imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
-		imageViewCreateInfo.subresourceRange.levelCount = 1;
-		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-		imageViewCreateInfo.subresourceRange.layerCount = 1;
-		if(vkCreateImageView(engineInstance->logicalDevice,&imageViewCreateInfo,nullptr,&ImageViews[i])!=VK_SUCCESS){
-			std::cerr << "Could not create Image View." << i << std::endl;
-			glfwTerminate();
-		}
-
-	}
 	VkPipelineDepthStencilStateCreateInfo depthStencil = {};
 	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencil.depthTestEnable = VK_TRUE;
@@ -59,23 +33,8 @@ int main(){
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
 	depthStencil.stencilTestEnable = VK_FALSE;
 
-	auto fragmentShaderModule = loadShaderModuleFromFile(engineInstance->logicalDevice,"frag.sprv");
-	auto vertexShaderModule = loadShaderModuleFromFile(engineInstance->logicalDevice,"vert.sprv");
+	ShaderPair shaderPair(engineInstance,"assets/shaders/vert.sprv","assets/shaders/frag.sprv");
 
-	VkPipelineShaderStageCreateInfo vertexShaderStageInfo = {};
-	vertexShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	vertexShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-
-	vertexShaderStageInfo.module = vertexShaderModule;
-	vertexShaderStageInfo.pName = "main";
-
-	VkPipelineShaderStageCreateInfo fragmentShaderStageInfo = {};
-	fragmentShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	fragmentShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	fragmentShaderStageInfo.module = fragmentShaderModule;
-	fragmentShaderStageInfo.pName = "main";
-
-	VkPipelineShaderStageCreateInfo shaders[] = {vertexShaderStageInfo, fragmentShaderStageInfo};
 
 	std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions(4);
 	for(unsigned int i=0;i<4;i++){
@@ -210,7 +169,7 @@ int main(){
 
 
 	VkAttachmentDescription colorAttachment = {};
-	colorAttachment.format = swapChainImageFormat;
+	colorAttachment.format = engineInstance->format.format;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -262,7 +221,7 @@ int main(){
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
 	pipelineCreateInfo.sType=VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineCreateInfo.stageCount=2;
-	pipelineCreateInfo.pStages=shaders;
+	pipelineCreateInfo.pStages=shaderPair.shaderCreateInfo;
 	pipelineCreateInfo.pVertexInputState=&vertexInputInfo;
 	pipelineCreateInfo.pInputAssemblyState=&inputAssembly;
 	pipelineCreateInfo.pViewportState=&viewportStateInfo;
@@ -314,7 +273,7 @@ int main(){
 	depthBufferAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	depthBufferAllocInfo.allocationSize = depthMemoryRequirements.size;
 	int tmp=0;
-	for(int i=0;i<depthMemoryProperties.memoryTypeCount;i++){
+	for(unsigned int i=0;i<depthMemoryProperties.memoryTypeCount;i++){
 		if(depthMemoryRequirements.memoryTypeBits &(1<<i) && (depthMemoryProperties.memoryTypes[i].propertyFlags &
 					(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))==
 					(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)){
@@ -350,7 +309,7 @@ int main(){
 	for(unsigned int i=0;i<engineInstance->imageCount;i++){
 
 		VkImageView attachments[] = {
-			ImageViews[i],
+			engineInstance->imageViews[i],
 			depthImageView
 	   	};
 		VkFramebufferCreateInfo framebufferCreateInfo = {};
@@ -534,11 +493,11 @@ int main(){
 	float speedMultiplier;
 	while(!glfwWindowShouldClose(engineInstance->window)){
 		int timeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
-		if (timeElapsed<16){
-			std::this_thread::sleep_for((std::chrono::duration<double, std::milli>)(16-timeElapsed));
+		start = std::chrono::system_clock::now();
+		if (timeElapsed<10){
+			std::this_thread::sleep_for((std::chrono::duration<double, std::milli>)(10-timeElapsed));
 		}
 		glfwPollEvents();
-		start = std::chrono::system_clock::now();
 		FORWARD=glfwGetKey(engineInstance->window,GLFW_KEY_W)==GLFW_PRESS;
 		BACK=glfwGetKey(engineInstance->window,GLFW_KEY_S)==GLFW_PRESS;
 		LEFT=glfwGetKey(engineInstance->window,GLFW_KEY_A)==GLFW_PRESS;
@@ -546,7 +505,7 @@ int main(){
 		UP=glfwGetKey(engineInstance->window,GLFW_KEY_SPACE)==GLFW_PRESS;
 		DOWN=glfwGetKey(engineInstance->window,GLFW_KEY_LEFT_CONTROL)==GLFW_PRESS;
 		SPRINT=glfwGetKey(engineInstance->window,GLFW_KEY_LEFT_SHIFT)==GLFW_PRESS;
-		speedMultiplier=0.1+SPRINT*0.4;
+		speedMultiplier=(0.1+SPRINT*0.4)*timeElapsed/10;
 		double mx;
 		double my;
 
@@ -630,12 +589,12 @@ int main(){
 			vkCmdEndRenderPass(commandBuffers[i]);
 			vkEndCommandBuffer(commandBuffers[i]);
 		}
-		for(int i=0;i<engineInstance->imageCount;i++){
+		for(unsigned int i=0;i<engineInstance->imageCount;i++){
 			vkWaitForFences(engineInstance->logicalDevice, 1, &Fence, VK_TRUE, UINT64_MAX);
 			vkResetFences(engineInstance->logicalDevice, 1, &Fence);
 
 			uint32_t imageIndex;
-			vkAcquireNextImageKHR(engineInstance->logicalDevice, engineInstance->swapchain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+			vkAcquireNextImageKHR(engineInstance->logicalDevice, engineInstance->swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 			VkSubmitInfo submitInfo = {};
 			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -659,13 +618,13 @@ int main(){
 			presentInfo.waitSemaphoreCount = 1;
 			presentInfo.pWaitSemaphores = signalSemaphores;
 
-			VkSwapchainKHR swapchains[] = {engineInstance->swapchain};
+			VkSwapchainKHR swapchains[] = {engineInstance->swapChain};
 			presentInfo.swapchainCount = 1;
 			presentInfo.pSwapchains = swapchains;
 			presentInfo.pImageIndices = &imageIndex;
 			vkQueuePresentKHR(engineInstance->graphicsQueue, &presentInfo);
-			vkQueueWaitIdle(engineInstance->graphicsQueue);
 		}
+		vkQueueWaitIdle(engineInstance->graphicsQueue);
 		vkFreeCommandBuffers(engineInstance->logicalDevice,commandPool,engineInstance->imageCount,commandBuffers.data());
 		vkResetCommandPool(engineInstance->logicalDevice,commandPool,VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
 
@@ -699,12 +658,12 @@ int main(){
 	vkDestroyPipeline(engineInstance->logicalDevice, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(engineInstance->logicalDevice, pipelineLayout, nullptr);
 	vkDestroyRenderPass(engineInstance->logicalDevice, renderPass, nullptr);
-	vkDestroyShaderModule(engineInstance->logicalDevice, fragmentShaderModule, nullptr);
-	vkDestroyShaderModule(engineInstance->logicalDevice, vertexShaderModule, nullptr);
+	vkDestroyShaderModule(engineInstance->logicalDevice, shaderPair.fragmentShader, nullptr);
+	vkDestroyShaderModule(engineInstance->logicalDevice, shaderPair.vertexShader, nullptr);
 	for(unsigned int i=0;i<engineInstance->imageCount;i++){
-		vkDestroyImageView(engineInstance->logicalDevice,ImageViews[i],nullptr);
+		vkDestroyImageView(engineInstance->logicalDevice,engineInstance->imageViews[i],nullptr);
 	}
-	vkDestroySwapchainKHR(engineInstance->logicalDevice, engineInstance->swapchain, nullptr);
+	vkDestroySwapchainKHR(engineInstance->logicalDevice, engineInstance->swapChain, nullptr);
 	vkDestroyBuffer(engineInstance->logicalDevice, uniformBuffer, nullptr);
 	vkFreeMemory(engineInstance->logicalDevice,uniformBufferMemory,nullptr);
 	vkDestroyDescriptorPool(engineInstance->logicalDevice, descPool, nullptr);
@@ -714,5 +673,6 @@ int main(){
 	vkDestroyInstance(engineInstance->vkinstance, NULL);
 	glfwDestroyWindow(engineInstance->window);
 	glfwTerminate();
+	delete engineInstance;
 
 }

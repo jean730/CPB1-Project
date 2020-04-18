@@ -8,7 +8,7 @@
 #include "client/terrain.h"
 class Engine {
 public:
-	Engine(std::string name,int width,int height);
+	Engine(std::string name,uint32_t width,uint32_t height);
 	void initVulkan();
 
 	GLFWwindow *window;
@@ -16,10 +16,13 @@ public:
 	std::vector<Entity> Entities;
 	void initTerrain(int size);
 	
+	//Engine parameters
 	int WIDTH;
 	int HEIGHT;
+	std::string ENGINE_NAME = "default";
+	bool PREFER_TRIPLE_BUFFERING = true;
+
 	VkExtent2D extent;
-	std::string engineName;
 
 	VkInstance vkinstance;
 	VkApplicationInfo applicationInfo = {};
@@ -35,7 +38,9 @@ public:
 	VkSurfaceKHR surface;
 	VkSurfaceFormatKHR format;
 
-	VkSwapchainKHR swapchain;
+	VkSwapchainKHR swapChain;
+	std::vector<VkImage> swapChainImages;
+	std::vector<VkImageView> imageViews;
 
 	uint32_t imageCount;
 

@@ -19,3 +19,25 @@ VkShaderModule loadShaderModuleFromFile(VkDevice device,std::string filename){
                 return NULL;
         }
 }
+
+ShaderPair::ShaderPair(Engine *engineInstance,std::string vertex,std::string fragment){
+	this->fragmentShader = loadShaderModuleFromFile(engineInstance->logicalDevice,"assets/shaders/frag.sprv");
+        this->vertexShader = loadShaderModuleFromFile(engineInstance->logicalDevice,"assets/shaders/vert.sprv");
+
+        VkPipelineShaderStageCreateInfo vertexShaderStageInfo = {};
+        vertexShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vertexShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        vertexShaderStageInfo.module = this->vertexShader;
+        vertexShaderStageInfo.pName = "main";
+
+        VkPipelineShaderStageCreateInfo fragmentShaderStageInfo = {};
+        fragmentShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        fragmentShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        fragmentShaderStageInfo.module = this->fragmentShader;
+        fragmentShaderStageInfo.pName = "main";
+
+        this->shaderCreateInfo[0] = vertexShaderStageInfo;
+	this->shaderCreateInfo[1] = fragmentShaderStageInfo;
+
+
+}

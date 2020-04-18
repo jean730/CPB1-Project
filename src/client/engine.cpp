@@ -1,10 +1,9 @@
 #include "client/engine.h"
-Engine::Engine(std::string name,int width,int height){
+Engine::Engine(std::string name,uint32_t width,uint32_t height){
 	this->WIDTH=width;
 	this->HEIGHT=height;
 	this->extent = {width,height};
-	this->engineName=name;
-	this->initVulkan();
+	this->ENGINE_NAME=name;
 }
 
 void Engine::initVulkan(){
@@ -22,14 +21,14 @@ void Engine::initVulkan(){
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
-        this->window = glfwCreateWindow(WIDTH, HEIGHT, this->engineName.c_str(), NULL,NULL);
+        this->window = glfwCreateWindow(WIDTH, HEIGHT, this->ENGINE_NAME.c_str(), NULL,NULL);
 
 	//Initialize a vulkan instance:
 	{
 		this->applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-		this->applicationInfo.pApplicationName = this->engineName.c_str();
+		this->applicationInfo.pApplicationName = this->ENGINE_NAME.c_str();
 		this->applicationInfo.applicationVersion = VK_MAKE_VERSION(1, 1, 0);
-		this->applicationInfo.pEngineName = this->engineName.c_str();
+		this->applicationInfo.pEngineName = this->ENGINE_NAME.c_str();
 		this->applicationInfo.engineVersion = VK_MAKE_VERSION(1, 1, 0);
 		this->applicationInfo.apiVersion = VK_API_VERSION_1_1;
 
@@ -53,7 +52,7 @@ void Engine::initVulkan(){
 		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 		std::vector<const char*> selectedLayers;
 		//selectedLayers.push_back("VK_LAYER_KHRONOS_validation");
-		selectedLayers.push_back("VK_LAYER_LUNARG_standard_validation");
+//		selectedLayers.push_back("VK_LAYER_LUNARG_standard_validation");
 		createInfo.enabledLayerCount = selectedLayers.size();
 		createInfo.ppEnabledLayerNames=selectedLayers.data();
 		std::cout << "Available Layers:" << std::endl;
@@ -102,7 +101,7 @@ void Engine::initVulkan(){
 		vkGetPhysicalDeviceQueueFamilyProperties(this->physicalDevice, &queueFamilyCount, nullptr);
 		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 		vkGetPhysicalDeviceQueueFamilyProperties(this->physicalDevice, &queueFamilyCount, queueFamilies.data());
-		for (long unsigned int i=0;i<queueFamilies.size();i++) {
+		for (unsigned int i=0;i<queueFamilies.size();i++) {
 			if(queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT){
 				this->graphicsFamily = i;
 				std::cout << "Graphics queue family ID:" << std::endl << "\t- " << i << std::endl;
@@ -191,28 +190,59 @@ void Engine::initVulkan(){
 				std::cout << "Surface supports triple buffering." << std::endl;
 			}
 		}
-
-		this->imageCount=capabilities.minImageCount+1;
-		if(capabilities.minImageCount == capabilities.maxImageCount){
-			this->imageCount-=1;
+		if(this->PREFER_TRIPLE_BUFFERING==true){
+			this->imageCount=3;
+			while(this->imageCount > capabilities.maxImageCount){
+				this->imageCount-=1;
+			}
+		}
+		else{
+			this->imageCount=1;
 		}
 
-		VkSwapchainCreateInfoKHR swapchainCreateInfo = {};
-		swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-		swapchainCreateInfo.surface = this->surface;
-		swapchainCreateInfo.minImageCount = this->imageCount;
-		swapchainCreateInfo.imageFormat = this->format.format;
-		swapchainCreateInfo.imageColorSpace = this->format.colorSpace;
-		swapchainCreateInfo.imageExtent = this->extent;
-		swapchainCreateInfo.imageArrayLayers = 1;
-		swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-		swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		swapchainCreateInfo.preTransform = capabilities.currentTransform;
-		swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-		swapchainCreateInfo.presentMode = presentMode;
-		swapchainCreateInfo.clipped = VK_TRUE;
-		swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
-		vkCreateSwapchainKHR(this->logicalDevice,&swapchainCreateInfo,nullptr,&this->swapchain);
+		VkSwapchainCreateInfoKHR swapChainCreateInfo = {};
+		swapChainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+		swapChainCreateInfo.surface = this->surface;
+		swapChainCreateInfo.minImageCount = this->imageCount;
+		swapChainCreateInfo.imageFormat = this->format.format;
+		swapChainCreateInfo.imageColorSpace = this->format.colorSpace;
+		swapChainCreateInfo.imageExtent = this->extent;
+		swapChainCreateInfo.imageArrayLayers = 1;
+		swapChainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		swapChainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		swapChainCreateInfo.preTransform = capabilities.currentTransform;
+		swapChainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+		swapChainCreateInfo.presentMode = presentMode;
+		swapChainCreateInfo.clipped = VK_TRUE;
+		swapChainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
+		vkCreateSwapchainKHR(this->logicalDevice,&swapChainCreateInfo,nullptr,&this->swapChain);
+	}
+
+	//Create Image Views
+	{
+		vkGetSwapchainImagesKHR(this->logicalDevice, this->swapChain, &this->imageCount, nullptr);
+		this->swapChainImages.resize(this->imageCount);
+		vkGetSwapchainImagesKHR(this->logicalDevice, this->swapChain, &this->imageCount, this->swapChainImages.data());
+		VkFormat swapChainImageFormat = this->format.format;
+		this->imageViews.resize(this->imageCount);
+
+		for(unsigned int i=0;i<this->imageCount;i++){
+			VkImageViewCreateInfo imageViewCreateInfo = {};
+			imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			imageViewCreateInfo.image = this->swapChainImages[i];
+			imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			imageViewCreateInfo.format = swapChainImageFormat;
+			imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+			imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+			imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+			imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+			imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+			imageViewCreateInfo.subresourceRange.levelCount = 1;
+			imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+			imageViewCreateInfo.subresourceRange.layerCount = 1;
+			vkCreateImageView(this->logicalDevice,&imageViewCreateInfo,nullptr,&this->imageViews[i]);
+		}
 	}
 
 
