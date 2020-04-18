@@ -186,42 +186,6 @@ int main(){
 	}
 
 
-	vkDeviceWaitIdle(engineInstance->logicalDevice);
-	for (Entity &entity : engineInstance->Entities){
-		entity.destroyBuffers(engineInstance->logicalDevice);
-	}
-	
-	vkDestroySemaphore(engineInstance->logicalDevice, engineInstance->renderFinishedSemaphore, nullptr);
-	vkDestroySemaphore(engineInstance->logicalDevice, engineInstance->imageAvailableSemaphore, nullptr);
-	vkDestroyFence(engineInstance->logicalDevice, engineInstance->Fence, nullptr);
-
-	vkFreeMemory(engineInstance->logicalDevice,engineInstance->depthImageMemory,nullptr);
-	vkDestroyImage(engineInstance->logicalDevice,engineInstance->depthImage,nullptr);
-	vkDestroyImageView(engineInstance->logicalDevice,engineInstance->depthImageView,nullptr);
-	vkDestroyCommandPool(engineInstance->logicalDevice, engineInstance->commandPool, nullptr);
-	for(unsigned int i=0;i<engineInstance->imageCount;i++){
-		vkDestroyFramebuffer(engineInstance->logicalDevice,engineInstance->Framebuffers[i],nullptr);
-	}
-
-	vkDestroyPipeline(engineInstance->logicalDevice, engineInstance->graphicsPipeline, nullptr);
-	vkDestroyPipelineLayout(engineInstance->logicalDevice, engineInstance->pipelineLayout, nullptr);
-	vkDestroyRenderPass(engineInstance->logicalDevice, engineInstance->renderPass, nullptr);
-	vkDestroyShaderModule(engineInstance->logicalDevice, engineInstance->shaderPair->fragmentShader, nullptr);
-	vkDestroyShaderModule(engineInstance->logicalDevice, engineInstance->shaderPair->vertexShader, nullptr);
-	for(unsigned int i=0;i<engineInstance->imageCount;i++){
-		vkDestroyImageView(engineInstance->logicalDevice,engineInstance->imageViews[i],nullptr);
-	}
-	vkDestroySwapchainKHR(engineInstance->logicalDevice, engineInstance->swapChain, nullptr);
-	vkDestroyBuffer(engineInstance->logicalDevice, engineInstance->uniformBuffer, nullptr);
-	vkFreeMemory(engineInstance->logicalDevice,engineInstance->uniformBufferMemory,nullptr);
-	vkDestroyDescriptorPool(engineInstance->logicalDevice, engineInstance->descPool, nullptr);
-	vkDestroyDescriptorSetLayout(engineInstance->logicalDevice, engineInstance->descriptorSetLayout, nullptr);
-	vkDestroySurfaceKHR(engineInstance->vkinstance,engineInstance->surface, nullptr);
-	vkDestroyDevice(engineInstance->logicalDevice,nullptr);
-	vkDestroyInstance(engineInstance->vkinstance, NULL);
-	glfwDestroyWindow(engineInstance->window);
-	glfwTerminate();
-	delete engineInstance->shaderPair;
 	delete engineInstance;
 
 }

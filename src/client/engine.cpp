@@ -7,6 +7,45 @@ Engine::Engine(std::string name,uint32_t width,uint32_t height){
 	this->ENGINE_NAME=name;
 }
 
+Engine::~Engine(){
+	vkDeviceWaitIdle(this->logicalDevice);
+        for (Entity &entity : this->Entities){
+                entity.destroyBuffers(this->logicalDevice);
+        }
+
+        vkDestroySemaphore(this->logicalDevice, this->renderFinishedSemaphore, nullptr);
+        vkDestroySemaphore(this->logicalDevice, this->imageAvailableSemaphore, nullptr);
+        vkDestroyFence(this->logicalDevice, this->Fence, nullptr);
+
+        vkFreeMemory(this->logicalDevice,this->depthImageMemory,nullptr);
+        vkDestroyImage(this->logicalDevice,this->depthImage,nullptr);
+        vkDestroyImageView(this->logicalDevice,this->depthImageView,nullptr);
+        vkDestroyCommandPool(this->logicalDevice, this->commandPool, nullptr);
+        for(unsigned int i=0;i<this->imageCount;i++){
+                vkDestroyFramebuffer(this->logicalDevice,this->Framebuffers[i],nullptr);
+        }
+
+        vkDestroyPipeline(this->logicalDevice, this->graphicsPipeline, nullptr);
+        vkDestroyPipelineLayout(this->logicalDevice, this->pipelineLayout, nullptr);
+        vkDestroyRenderPass(this->logicalDevice, this->renderPass, nullptr);
+        vkDestroyShaderModule(this->logicalDevice, this->shaderPair->fragmentShader, nullptr);
+        vkDestroyShaderModule(this->logicalDevice, this->shaderPair->vertexShader, nullptr);
+        for(unsigned int i=0;i<this->imageCount;i++){
+                vkDestroyImageView(this->logicalDevice,this->imageViews[i],nullptr);
+        }
+        vkDestroySwapchainKHR(this->logicalDevice, this->swapChain, nullptr);
+        vkDestroyBuffer(this->logicalDevice, this->uniformBuffer, nullptr);
+        vkFreeMemory(this->logicalDevice,this->uniformBufferMemory,nullptr);
+        vkDestroyDescriptorPool(this->logicalDevice, this->descPool, nullptr);
+        vkDestroyDescriptorSetLayout(this->logicalDevice, this->descriptorSetLayout, nullptr);
+        vkDestroySurfaceKHR(this->vkinstance,this->surface, nullptr);
+        vkDestroyDevice(this->logicalDevice,nullptr);
+        vkDestroyInstance(this->vkinstance, NULL);
+        glfwDestroyWindow(this->window);
+        glfwTerminate();
+        delete this->shaderPair;
+}
+
 void Engine::initVulkan(){
 	//Initialize GLFW
 	glfwInit();
