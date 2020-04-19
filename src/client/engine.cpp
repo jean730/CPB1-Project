@@ -57,13 +57,13 @@ void Engine::initVulkan(){
 		glfwTerminate();
 		exit(-1);
 	}
-
 	//Create window
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
-	this->window = glfwCreateWindow(WIDTH, HEIGHT, this->ENGINE_NAME.c_str(), NULL,NULL);
-	glfwSetInputMode(this->window,GLFW_CURSOR,GLFW_CURSOR_HIDDEN);
+	this->window = glfwCreateWindow(WIDTH, HEIGHT, this->ENGINE_NAME.c_str(),NULL,NULL);
+	glfwSetInputMode(this->window,GLFW_CURSOR,GLFW_CURSOR_DISABLED);
+	glfwSetInputMode(this->window,GLFW_RAW_MOUSE_MOTION,GLFW_TRUE);
 
 	//Initialize a vulkan instance:
 	{
@@ -599,7 +599,7 @@ void Engine::initVulkan(){
 	{
 		VkBufferCreateInfo uniformBufferCreateInfo = {};
 		uniformBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		uniformBufferCreateInfo.size = sizeof(uniformBufferStruct);
+		uniformBufferCreateInfo.size = 1156; // Size given by sizeof was wrong according to renderdoc //sizeof(uniformBufferStruct);
 		uniformBufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 		uniformBufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		vkCreateBuffer(this->logicalDevice, &uniformBufferCreateInfo, nullptr, &this->uniformBuffer);
@@ -724,8 +724,20 @@ void Engine::initVulkan(){
 		}
 	}
 
+
+	//Initialize projectionMatrix
 	this->uniformBufferObject.projectionMatrix = glm::perspective(glm::radians(45.0f), (float)this->extent.width/(float)this->extent.height, 0.1f, 1000.0f);
 	this->uniformBufferObject.projectionMatrix[1][1] *= -1;
+
+	//Initialize time as 0
+	this->uniformBufferObject.time=0;
+
+	//Initialize light sources:
+	for(int i=0;i<20;i++){
+		this->uniformBufferObject.lightSourcesPosition[i]=glm::vec4(0,0,0,0);
+		this->uniformBufferObject.lightSourcesColor[i]=glm::vec4(0,0,0,0);
+		this->uniformBufferObject.lightSourcesPower[i].value=0;
+	}
 
 
 }
@@ -753,7 +765,7 @@ void Engine::draw(){
 	renderPassInfo.renderArea.offset = {0, 0};
 	renderPassInfo.renderArea.extent = this->extent;
 	std::array<VkClearValue, 2> clearValues = {};
-	clearValues[0].color = {0.53f, 0.81f, 0.92f, 1.0f};
+	clearValues[0].color = {0.01f, 0.02f, 0.05f, 1.0f};
 	clearValues[1].depthStencil = {1.0f, 0};
 	renderPassInfo.clearValueCount = 2;
 	renderPassInfo.pClearValues = clearValues.data();
@@ -834,6 +846,17 @@ void Engine::draw(){
 }
 
 void Engine::update(int timeElapsed){
+
+	this->uniformBufferObject.lightSourcesPosition[0]=glm::vec4(-68.8656,12.92,-65.3058,0);
+	this->uniformBufferObject.lightSourcesColor[0]=glm::vec4(1,0,0,0);
+	this->uniformBufferObject.lightSourcesPower[0].value=4;
+	this->uniformBufferObject.lightSourcesPosition[1]=glm::vec4(-68.8656,12.92,-80.3058,0);
+	this->uniformBufferObject.lightSourcesColor[1]=glm::vec4(0,0,1,0);
+	this->uniformBufferObject.lightSourcesPower[1].value=3;
+	this->uniformBufferObject.lightSourcesPosition[2]=glm::vec4(-60.8656,15.92,-72.3058,0);
+	this->uniformBufferObject.lightSourcesColor[2]=glm::vec4(0,1,0,0);
+	this->uniformBufferObject.lightSourcesPower[2].value=2;
+
 	glfwPollEvents();
 	glm::vec3 eyeDirection(0,0,0);
 	glm::vec3 sideDirection(0,0,0);
@@ -882,7 +905,6 @@ void Engine::update(int timeElapsed){
 void Engine::mainLoop(){
 	std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
 	std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
-	glfwSetInputMode(this->window,GLFW_CURSOR,GLFW_CURSOR_HIDDEN);
 	uint16_t counter=0;
 	while(!glfwWindowShouldClose(this->window)){
 
@@ -890,6 +912,7 @@ void Engine::mainLoop(){
 		counter=(counter+1)%100;
 		if(counter==0){
 			std::cout << "FPS: " << 1000/timeElapsed << std::endl;
+			std::cout << "CamPos: " << this->camPos.x << ":" << this->camPos.y << ":" << this->camPos.z << std::endl;
 		}
 
 		start = std::chrono::system_clock::now();
