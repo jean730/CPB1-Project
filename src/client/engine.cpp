@@ -599,7 +599,7 @@ void Engine::initVulkan(){
 	{
 		VkBufferCreateInfo uniformBufferCreateInfo = {};
 		uniformBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		uniformBufferCreateInfo.size = 1156; // Size given by sizeof was wrong according to renderdoc //sizeof(uniformBufferStruct);
+		uniformBufferCreateInfo.size = sizeof(uniformBufferStruct);
 		uniformBufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 		uniformBufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		vkCreateBuffer(this->logicalDevice, &uniformBufferCreateInfo, nullptr, &this->uniformBuffer);
