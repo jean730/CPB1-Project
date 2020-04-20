@@ -20,8 +20,8 @@ void main() {
 	vec3 lightDirection=vec3(0.4,1,0.5);
 	vec3 tmpColor = 0.03*FragColor * max(dot(normalize(FragNorm), normalize(lightDirection)), 0);
 	for(int i=0;i<20;i++){
-		vec3 light = (FragColor * vec3(ubo.lightSourcesColor[i]) * ubo.lightSourcesPower[i]*20);
-		light/=pow((length(vec3(ubo.lightSourcesPosition[i])-FragPos)),2);
+		vec3 light = (FragColor * vec3(ubo.lightSourcesColor[i]) * ubo.lightSourcesPower[i]*10);
+		light/=max(1,pow((length(vec3(ubo.lightSourcesPosition[i])-FragPos)),2));
 		light*=max(dot(normalize(FragNorm), normalize(vec3(ubo.lightSourcesPosition[i])-FragPos)), 0);
 		tmpColor+=light;
 	}

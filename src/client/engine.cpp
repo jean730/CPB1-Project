@@ -856,7 +856,9 @@ void Engine::update(int timeElapsed){
 	this->uniformBufferObject.lightSourcesPosition[2]=glm::vec4(-60.8656,15.92,-72.3058,0);
 	this->uniformBufferObject.lightSourcesColor[2]=glm::vec4(0,1,0,0);
 	this->uniformBufferObject.lightSourcesPower[2].value=2;
-
+	for(int i=0;i<3;i++){
+		this->uniformBufferObject.lightSourcesPosition[i].y=getTerrainHeight(4,1,this->uniformBufferObject.lightSourcesPosition[i].x,this->uniformBufferObject.lightSourcesPosition[i].z,20.0f,0.008)+3;
+	}
 	glfwPollEvents();
 	glm::vec3 eyeDirection(0,0,0);
 	glm::vec3 sideDirection(0,0,0);
@@ -897,9 +899,16 @@ void Engine::update(int timeElapsed){
 	float height_speed=(UP-DOWN)*speedMultiplier;
 	this->camPos+=glm::vec3((float)eyeDirection.x*forward_speed,0,eyeDirection.z*forward_speed);
 	this->camPos+=glm::vec3((float)sideDirection.x*side_speed,0,sideDirection.z*side_speed);
-	this->camPos+=glm::vec3(0,height_speed,0);
+//	this->camPos+=glm::vec3(0,height_speed,0);
+//	Stay on the ground instead of flying.
+	this->camPos.y=getTerrainHeight(4,1,this->camPos.x,this->camPos.z,20.0f,0.008)+3;
 	this->uniformBufferObject.time+=timeElapsed*0.001;
 	this->uniformBufferObject.viewMatrix = glm::lookAt(this->camPos,this->camPos+eyeDirection,glm::vec3(0.0f,1.0f,0.0f));
+
+	//Omnidirectional light at the camera's position
+	this->uniformBufferObject.lightSourcesPosition[3]=glm::vec4(this->camPos,0);
+	this->uniformBufferObject.lightSourcesColor[3]=glm::vec4(1,1,1,0);
+	this->uniformBufferObject.lightSourcesPower[3].value=1;
 }
 
 void Engine::mainLoop(){

@@ -18,6 +18,14 @@ float getNoiseValue(noise::module::Perlin &perlin,float x,float y,float z){
 	return value;
 }
 
+float getTerrainHeight(int Occ,int Seed, float x, float z, float magnitude, float noiseZoom){
+	noise::module::Perlin perlin;
+	perlin.SetSeed(Seed);
+	perlin.SetOctaveCount(Occ);
+	return magnitude * getNoiseValue(std::ref(perlin),(float)(x * noiseZoom), (float)((float)z * noiseZoom), 0.5);
+
+}
+
 Entity createTerrain(int Occ,int Seed, int X, int Z, float magnitude, float noiseZoom, int resolution)
 {
 	noise::module::Perlin perlin;
